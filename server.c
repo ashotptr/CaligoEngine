@@ -106,7 +106,7 @@ ClientState* create_client_state(int fd) {
 
 int main() {
     int server_socket, client_socket;
-    struct sockaddr_in server_addr, client_addr;
+    struct sockaddr_in6 server_addr, client_addr;
     socklen_t client_len = sizeof(client_addr);
 
     queue_init(&task_queue);
@@ -123,7 +123,7 @@ int main() {
         pthread_detach(worker_threads[i]);
     }
 
-    server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    server_socket = socket(AF_INET6, SOCK_STREAM, 0);
 
     if (server_socket == -1) { 
         perror("Could not create socket");
@@ -143,9 +143,15 @@ int main() {
         return 1;
     }
 
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY;
-    server_addr.sin_port = htons(PORT);
+    int optval = 0;
+
+    if (setsockopt(server_socket, IPPROTO_IPV6, IPV6_V6ONLY, &optval, sizeof(optval)) < 0) {
+        perror("setsockopt IPV6_V6ONLY failed");
+    }
+    
+    server_addr.sin6_family = AF_INET6;
+    server_addr.sin6_addr = in6addr_any;
+    server_addr.sin6_port = htons(PORT);
 
     if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
         perror("Bind failed");
