@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atmospheric Engine</title>
+    <style>
+        :root {
+            --bg-color: #101010;
+            --text-color: #e0e0e0;
+            --text-muted: #777;
+            --border-color: #222;
+            --accent-color: #c0c0c0;
+            --hover-bg: #2a2a2a;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 2em;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        #app {
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            flex-grow: 1;
+        }
+        h1 {
+            font-weight: 300;
+            color: #fff;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 2em;
+        }
+        .control-button {
+            padding: 12px 20px;
+            font-size: 1.1em;
+            background-color: var(--bg-color);
+            color: var(--accent-color);
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        .control-button:hover {
+            background-color: var(--accent-color);
+            color: var(--bg-color);
+            border-color: var(--accent-color);
+        }
+
+        #artist-name {
+            font-size: 1.5em;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 1em;
+        }
+        #album-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 20px;
+        }
+        .album-item {
+            background-color: transparent;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .album-item:hover {
+            background-color: var(--hover-bg);
+        }
+        .album-item img {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            background-color: var(--border-color);
+            border-radius: 4px;
+        }
+        .album-item p {
+            margin: 10px 5px;
+            font-size: 0.9em;
+            color: var(--text-color);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #now-playing {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #181818;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            box-sizing: border-box;
+            z-index: 100;
+        }
+        #now-playing audio {
+            width: 80%;
+            max-width: 600px;
+            filter: invert(1) grayscale(1) contrast(1.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h1>Atmospheric Engine</h1>
+        
+        <div class="controls">
+            <button id="btn-mixtape" class="control-button">Mixtape</button>
+            <button id="btn-radio" class="control-button">Radio</button>
+        </div>
+
+        <h2 id="artist-name">Loading...</h2>
+        <div id="album-grid"></div>
+    </div>
+
+    <div id="now-playing">
+        <audio id="audio-player" controls autoplay>
+            Your browser does not support the audio element.
+        </audio>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const artistName = document.getElementById('artist-name');
+            const albumGrid = document.getElementById('album-grid');
+            const audioPlayer = document.getElementById('audio-player');
+            
+            const btnMixtape = document.getElementById('btn-mixtape');
+            const btnRadio = document.getElementById('btn-radio');
+
+            btnRadio.addEventListener('click', () => {
+                artistName.textContent = 'Radio Stream';
+                albumGrid.innerHTML = '<p>Connecting to live broadcast...</p>';
+                
+                audioPlayer.src = '/radio/'; 
+                audioPlayer.load();
+                audioPlayer.play();
+            });
+
+            btnMixtape.addEventListener('click', () => {
+                loadMixtape();
+            });
+
+            async function loadMixtape() {
+                artistName.textContent = 'Loading Mixtape...';
+                albumGrid.innerHTML = '';
+                
+                try {
+                    const response = await fetch('/cgi_bin/mixtape_app', {
+                        headers: {
+                            'Authorization': 'Basic ' + btoa('admin:password123')
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    
+                    artistName.textContent = data.artist || 'Mixtape';
+
+                    if (data.albums && data.albums.length > 0) {
+                        data.albums.forEach(album => {
+                            const item = document.createElement('div');
+                            item.className = 'album-item';
+                            
+                            const coverSrc = album.cover || 'https://placehold.co/180x180/101010/777?text=?';
+
+                            item.innerHTML = `
+                                <img src="${coverSrc}" alt="${album.title}" onerror="this.src='https://placehold.co/180x180/101010/777?text=ERR'">
+                                <p title="${album.title}">${album.title}</p>
+                            `;
+                            
+                            item.addEventListener('click', () => {
+                                console.log('Playing:', album.title, album.audio_url);
+                                audioPlayer.src = album.audio_url;
+                                audioPlayer.play();
+                            });
+                            
+                            albumGrid.appendChild(item);
+                        });
+                    }
+                    else {
+                        albumGrid.innerHTML = '<p>No albums found in mixtape.</p>';
+                    }
+                }
+                catch (error) {
+                    console.error("Error fetching data:", error);
+                    artistName.textContent = 'Error';
+                    albumGrid.innerHTML = '<p>Error loading results. Is the server running?</p>';
+                }
+            }
+
+            loadMixtape();
+        });
+    </script>
+</body>
+</html>
