@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Atmospheric Engine</title>
+    <title>Caligo Engine</title>
     <style>
         :root {
             --bg-color: #101010;
@@ -117,14 +117,14 @@
 </head>
 <body>
     <div id="app">
-        <h1>Atmospheric Engine</h1>
+        <h1>Caligo Engine</h1>
         
         <div class="controls">
-            <button id="btn-mixtape" class="control-button">Mixtape</button>
+            <button id="btn-mixtape" class="control-button">Thesaurarium</button>
             <button id="btn-radio" class="control-button">Radio</button>
         </div>
 
-        <h2 id="artist-name">Loading...</h2>
+        <h2 id="title"></h2>
         <div id="album-grid"></div>
     </div>
 
@@ -136,7 +136,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const artistName = document.getElementById('artist-name');
+            const title = document.getElementById('title');
             const albumGrid = document.getElementById('album-grid');
             const audioPlayer = document.getElementById('audio-player');
             
@@ -144,7 +144,7 @@
             const btnRadio = document.getElementById('btn-radio');
 
             btnRadio.addEventListener('click', () => {
-                artistName.textContent = 'Radio Stream';
+                title.textContent = 'Radio Stream';
                 albumGrid.innerHTML = '<p>Connecting to live broadcast...</p>';
                 
                 audioPlayer.src = '/radio/'; 
@@ -156,54 +156,82 @@
                 loadMixtape();
             });
 
+            let mixtapeData = null;
+
             async function loadMixtape() {
-                artistName.textContent = 'Loading Mixtape...';
+                title.textContent = 'Thesaurarium';                
                 albumGrid.innerHTML = '';
                 
                 try {
-                    const response = await fetch('/cgi_bin/mixtape_app', {
-                        headers: {
-                            'Authorization': 'Basic ' + btoa('admin:password123')
+                    if (!mixtapeData) {
+                        const response = await fetch('/cgi_bin/mixtape_app', {
+                            headers: {
+                                'Authorization': 'Basic ' + btoa('admin:password123')
+                            }
+                        });
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
                         }
-                    });
-
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                        mixtapeData = await response.json();
                     }
 
-                    const data = await response.json();
-                    
-                    artistName.textContent = data.artist || 'Mixtape';
-
-                    if (data.albums && data.albums.length > 0) {
-                        data.albums.forEach(album => {
+                    if (mixtapeData.albums && mixtapeData.albums.length > 0) {
+                        console.log("Mixtape Data:", mixtapeData);
+                        mixtapeData.albums.forEach(album => {
                             const item = document.createElement('div');
                             item.className = 'album-item';
                             
                             const coverSrc = album.cover || 'https://placehold.co/180x180/101010/777?text=?';
 
                             item.innerHTML = `
-                                <img src="${coverSrc}" alt="${album.title}" onerror="this.src='https://placehold.co/180x180/101010/777?text=ERR'">
-                                <p title="${album.title}">${album.title}</p>
+                                <img src="${coverSrc}" alt="${album.name}" onerror="this.src='https://placehold.co/180x180/101010/777?text=ERR'">
+                                <p title="${album.name}">${album.name}</p>
                             `;
                             
                             item.addEventListener('click', () => {
-                                console.log('Playing:', album.title, album.audio_url);
-                                audioPlayer.src = album.audio_url;
-                                audioPlayer.play();
+                                showAlbumTracks(album);
                             });
-                            
                             albumGrid.appendChild(item);
                         });
-                    }
-                    else {
+                    } else {
                         albumGrid.innerHTML = '<p>No albums found in mixtape.</p>';
                     }
                 }
                 catch (error) {
                     console.error("Error fetching data:", error);
-                    artistName.textContent = 'Error';
                     albumGrid.innerHTML = '<p>Error loading results. Is the server running?</p>';
+                    mixtapeData = null;
+                }
+            }
+
+            function showAlbumTracks(album) {
+                title.textContent = album.name;
+                
+                albumGrid.innerHTML = '';
+                
+                const backButton = document.createElement('button');
+                backButton.textContent = 'Back to Thesaurarium';
+                backButton.className = 'control-button';
+                backButton.style.marginBottom = '1em';
+                backButton.addEventListener('click', loadMixtape);
+                albumGrid.appendChild(backButton);
+
+                if (album.tracks && album.tracks.length > 0) {
+                    album.tracks.forEach(track => {
+                        const item = document.createElement('div');
+                        
+                        item.className = 'album-item'; 
+                        item.innerHTML = `<p title="${track.title}">${track.title}</p>`;
+                        
+                        item.addEventListener('click', () => {
+                            console.log('Playing:', track.title, track.audio_url);
+                            audioPlayer.src = track.audio_url;
+                            audioPlayer.play();
+                        });
+                        albumGrid.appendChild(item);
+                    });
+                } else {
+                    albumGrid.innerHTML += '<p>No tracks found in this album.</p>';
                 }
             }
 

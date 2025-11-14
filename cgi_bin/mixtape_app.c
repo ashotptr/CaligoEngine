@@ -34,9 +34,6 @@ int is_mp3(const char* name) {
 
 int main(void) {
     json_t* root = json_object();
-
-    json_object_set_new(root, "artist", json_string("Her Personal Mixtape"));
-
     json_t* albums = json_array();
 
     DIR* dir = opendir(ROOT_PATH);
@@ -72,39 +69,60 @@ int main(void) {
         stat(album_path, &path_stat);
 
         if (S_ISDIR(path_stat.st_mode)) {
-            char* album_name = entry->d_name;
-            
-            char cover_url[1024] = "";
+            char* album_folder_name = entry->d_name;
 
-            DIR* album_dir = opendir(album_path);
+            char metadata_path[1024];
+            snprintf(metadata_path, sizeof(metadata_path), "%s/%s/metadata.json", ROOT_PATH, album_folder_name);
 
-            if (album_dir == NULL) {
+            json_error_t error;
+            json_t* metadata = json_load_file(metadata_path, 0, &error);
+
+            if (!metadata) {
                 continue;
             }
 
-            struct dirent* file_entry;
+            const char* album_title = json_string_value(json_object_get(metadata, "albumTitle"));
+            const char* cover_file = json_string_value(json_object_get(metadata, "coverFile"));
+            json_t* tracks_metadata = json_object_get(metadata, "tracks");
 
-            while ((file_entry = readdir(album_dir)) != NULL) {
-                if (cover_url[0] == '\0' && is_image(file_entry->d_name)) {
-                    snprintf(cover_url, sizeof(cover_url), "%s/%s/%s", URL_BASE, album_name, file_entry->d_name);
-                }
-
-                if (is_mp3(file_entry->d_name)) {
-                    char audio_url[1024];
-
-                    snprintf(audio_url, sizeof(audio_url), "%s/%s/%s", URL_BASE, album_name, file_entry->d_name);
-
-                    json_t* track = json_object();
-
-                    json_object_set_new(track, "title", json_string(file_entry->d_name));
-                    json_object_set_new(track, "cover", json_string(cover_url));
-                    json_object_set_new(track, "audio_url", json_string(audio_url));
-
-                    json_array_append_new(albums, track);
-                }
+            if (!album_title || !cover_file || !json_is_array(tracks_metadata)) {
+                json_decref(metadata);
+                continue;
             }
 
-            closedir(album_dir);
+            json_t* album = json_object();
+            
+            json_object_set_new(album, "name", json_string(album_title)); 
+
+            char cover_url[1024];
+            snprintf(cover_url, sizeof(cover_url), "%s/%s/%s", URL_BASE, album_folder_name, cover_file);
+            json_object_set_new(album, "cover", json_string(cover_url));
+
+            json_t* tracks_output_array = json_array();
+            size_t i;
+            json_t* track_metadata;
+
+            json_array_foreach(tracks_metadata, i, track_metadata) {
+                const char* track_file = json_string_value(json_object_get(track_metadata, "file"));
+                const char* track_title = json_string_value(json_object_get(track_metadata, "title"));
+
+                if (!track_file || !track_title) {
+                    continue;
+                }
+
+                char audio_url[1024];
+                snprintf(audio_url, sizeof(audio_url), "%s/%s/%s", URL_BASE, album_folder_name, track_file);
+
+                json_t* track_output = json_object();
+
+                json_object_set_new(track_output, "title", json_string(track_title));
+                json_object_set_new(track_output, "audio_url", json_string(audio_url));
+                json_array_append_new(tracks_output_array, track_output);
+            }
+
+            json_object_set_new(album, "tracks", tracks_output_array);
+            json_array_append_new(albums, album);
+            json_decref(metadata);
         }
     }
 

@@ -6,4 +6,5 @@ cgi_bin/mixtape_app
 cgi_bin/*.o
 public_html/mixtape/*/*.mp3
 public_html/mixtape/*/*.png
+public_html/mixtape/*/*.json
 public_html/mixtape/radio_playlist.mp3
