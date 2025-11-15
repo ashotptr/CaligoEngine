@@ -148,7 +148,7 @@ int main() {
     if (setsockopt(server_socket, IPPROTO_IPV6, IPV6_V6ONLY, &optval, sizeof(optval)) < 0) {
         perror("setsockopt IPV6_V6ONLY failed");
     }
-    
+
     server_addr.sin6_family = AF_INET6;
     server_addr.sin6_addr = in6addr_any;
     server_addr.sin6_port = htons(PORT);
@@ -219,6 +219,12 @@ int main() {
                     }
 
                     printf("Main Thread: Connection accepted (fd=%d)\n", client_socket);
+
+                    int keepalive = 1;
+                    
+                    if (setsockopt(client_socket, SOL_SOCKET, SO_KEEPALIVE, &keepalive, sizeof(keepalive)) < 0) {
+                        perror("setsockopt(SO_KEEPALIVE) failed");
+                    }
 
                     set_nonblock(client_socket);
                     
