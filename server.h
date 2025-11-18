@@ -25,9 +25,22 @@
 #define MAX_EPOLL_EVENTS 64
 #define MAX_ROUTES 32
 
+typedef enum {
+    STATE_READ_REQUEST,
+    STATE_PROXYING
+} ClientConnState;
+
+typedef struct ClientState {
+    int fd;
+    char buffer[BUFFER_SIZE];
+    size_t bytes_read;
+    ClientConnState state;
+    struct ClientState* peer;
+} ClientState;
+
+
 typedef struct Task {
-    int client_socket;
-    char* request_buffer;
+    ClientState* client;
     struct Task* next;
 } Task;
 
@@ -37,12 +50,6 @@ typedef struct {
     pthread_mutex_t mutex;
     pthread_cond_t cond;
 } TaskQueue;
-
-typedef struct {
-    int fd;
-    char buffer[BUFFER_SIZE];
-    size_t bytes_read;
-} ClientState;
 
 typedef enum {
     ROUTE_STATIC,
@@ -59,9 +66,20 @@ typedef struct {
 
 extern RouteRule g_routes[MAX_ROUTES];
 extern int g_route_count;
+extern int epoll_fd;
+
+void queue_init(TaskQueue* q);
+
+void queue_push(TaskQueue* q, ClientState* client);
+
+ClientState* queue_pop(TaskQueue* q);
+
+void handle_work(ClientState* client);
+
+int set_nonblock(int fd);
+
+ClientState* create_client_state(int fd);
 
 void load_config_file(const char* filename);
-
-void handle_work(int client_socket, char* request_buffer);
 
 #endif

@@ -335,19 +335,16 @@ static int check_authentication(int client_socket, char* request_buffer) {
     return authorized;
 }
 
-static void handle_proxy_request(int client_socket, char* request_buffer, const char* target_host) {
+static void handle_proxy_request_async(ClientState* client) {
     int upstream_socket;
     struct sockaddr_in upstream_addr;
-
-    int port = RADIO_PORT;
-    char host[256] = "127.0.0.1";
 
     upstream_socket = socket(AF_INET, SOCK_STREAM, 0);
 
     if (upstream_socket < 0) {
         perror("proxy: socket");
 
-        send_502_bad_gateway(client_socket);
+        send_502_bad_gateway(client->fd);
         
         return;
     }
@@ -355,37 +352,67 @@ static void handle_proxy_request(int client_socket, char* request_buffer, const 
     memset(&upstream_addr, 0, sizeof(upstream_addr));
 
     upstream_addr.sin_family = AF_INET;
-    upstream_addr.sin_port = htons(port);
-    upstream_addr.sin_addr.s_addr = inet_addr(host); 
+    upstream_addr.sin_port = htons(RADIO_PORT);
+    upstream_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
     if (connect(upstream_socket, (struct sockaddr*)&upstream_addr, sizeof(upstream_addr)) < 0) {
-        perror("proxy: connect (Is the radio_server running?)");
+        perror("proxy: connect");
 
-        send_502_bad_gateway(client_socket);
+        send_502_bad_gateway(client->fd);
+        
+        client->bytes_read = 0;
+
+        bzero(client->buffer, BUFFER_SIZE); //memset
+
+        client->state = STATE_READ_REQUEST;
 
         close(upstream_socket);
-        
+
         return;
     }
 
-    if (send(upstream_socket, request_buffer, strlen(request_buffer), 0) < 0) {
+    if (send(upstream_socket, client->buffer, client->bytes_read, 0) < 0) {
         perror("proxy: send");
 
+        send_502_bad_gateway(client->fd);
+        
+        client->bytes_read = 0;
+
+        bzero(client->buffer, BUFFER_SIZE);
+
+        client->state = STATE_READ_REQUEST;
+
         close(upstream_socket);
 
         return;
     }
+    
+    set_nonblock(upstream_socket);
+    
+    ClientState* upstream_state = create_client_state(upstream_socket);
 
-    char buffer[BUFFER_SIZE];
-    ssize_t bytes_read;
+    client->state = STATE_PROXYING;
+    client->peer = upstream_state;
+    upstream_state->state = STATE_PROXYING;
+    upstream_state->peer = client;
 
-    while ((bytes_read = recv(upstream_socket, buffer, BUFFER_SIZE, 0)) > 0) {
-        if (send(client_socket, buffer, bytes_read, 0) < 0) {
-            break; 
-        }
+    struct epoll_event ev;
+    ev.events = EPOLLIN | EPOLLET;
+    ev.data.ptr = upstream_state;
+
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, upstream_socket, &ev) == -1) {
+        perror("epoll_ctl: add upstream_socket");
+        
+        free(upstream_state);
+
+        client->state = STATE_READ_REQUEST;
+        client->peer = NULL;
+        client->bytes_read = 0;
+
+        bzero(client->buffer, BUFFER_SIZE);
+
+        close(upstream_socket);
     }
-
-    close(upstream_socket);
 }
 
 void load_config_file(const char* filename) {
@@ -462,7 +489,10 @@ void load_config_file(const char* filename) {
     }
 }
 
-void handle_work(int client_socket, char* request_buffer) {
+void handle_work(ClientState* client) {
+    char* request_buffer = client->buffer;
+    int client_socket = client->fd;
+
     if (request_buffer == NULL) {
         close(client_socket);
 
@@ -540,44 +570,39 @@ void handle_work(int client_socket, char* request_buffer) {
 
     if (best_rule == NULL) {
         printf("Worker Thread: 404 Not Found (No route rule for: %s)\n", requested_path);
-        
+
         send_404_not_found(client_socket);
-
-        close(client_socket);
-
-        return;
     }
+    else {
+        if (best_rule->needs_auth) {
+            if (!check_authentication(client_socket, request_buffer)) {
+                close(client_socket);
 
-    if (best_rule->needs_auth) {
-        if (!check_authentication(client_socket, request_buffer)) {
-            close(client_socket);
+                return;
+            }
+        }
+
+        if (best_rule->type == ROUTE_STATIC) {
+            printf("Worker Thread: Routing to STATIC: %s\n", best_rule->target);
+            
+            serve_static_file(client_socket, request_buffer, best_rule->target, requested_path);
+        }
+        else if (best_rule->type == ROUTE_CGI) {
+            printf("Worker Thread: Routing to CGI: %s\n", best_rule->target);
+ 
+            handle_cgi_request(client_socket, request_buffer, best_rule->target, requested_path);        
+        }
+        else if (best_rule->type == ROUTE_PROXY) {
+            printf("Worker Thread: Routing to PROXY: %s\n", best_rule->target);
+
+            handle_proxy_request_async(client);
 
             return;
         }
     }
-
-    switch (best_rule->type) {
-        case ROUTE_STATIC:
-            printf("Worker Thread: Routing to STATIC: %s\n", best_rule->target);
-            
-            serve_static_file(client_socket, request_buffer, best_rule->target, requested_path);
-            
-            break;
-        
-        case ROUTE_CGI:
-            printf("Worker Thread: Routing to CGI: %s\n", best_rule->target);
-
-            handle_cgi_request(client_socket, request_buffer, best_rule->target, requested_path);
-            
-            break;
-            
-        case ROUTE_PROXY:
-            printf("Worker Thread: Routing to PROXY: %s\n", best_rule->target);
-
-            handle_proxy_request(client_socket, request_buffer, best_rule->target);
-
-            break;
-    }
     
-    close(client_socket);
+    client->bytes_read = 0;
+    client->state = STATE_READ_REQUEST;
+
+    bzero(client->buffer, BUFFER_SIZE);
 }

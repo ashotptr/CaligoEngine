@@ -1,6 +1,7 @@
 #include "server.h"
 
 TaskQueue task_queue;
+int epoll_fd;
 
 static char* safe_strndup(const char* src, size_t max_len) {
     size_t len = strnlen(src, max_len);
@@ -24,10 +25,9 @@ void queue_init(TaskQueue* q) {
     pthread_cond_init(&q->cond, NULL);
 }
 
-void queue_push(TaskQueue* q, int client_socket, char* request_buffer) {
+void queue_push(TaskQueue* q, ClientState* client) {
     Task* new_task = (Task*)malloc(sizeof(Task));
-    new_task->client_socket = client_socket;
-    new_task->request_buffer = request_buffer;
+    new_task->client = client;
     new_task->next = NULL;
 
     pthread_mutex_lock(&q->mutex);
@@ -35,17 +35,19 @@ void queue_push(TaskQueue* q, int client_socket, char* request_buffer) {
     if (q->tail) {
         q->tail->next = new_task;
     }
-    else {
-        q->head = new_task;
-    }
 
     q->tail = new_task;
 
-    pthread_cond_signal(&q->cond);
+    if (q->head == NULL) {
+        q->head = new_task;
+    }
+
     pthread_mutex_unlock(&q->mutex);
+
+    pthread_cond_signal(&q->cond);
 }
 
-Task* queue_pop(TaskQueue* q) {
+ClientState* queue_pop(TaskQueue* q) {
     pthread_mutex_lock(&q->mutex);
 
     while (q->head == NULL) {
@@ -61,19 +63,22 @@ Task* queue_pop(TaskQueue* q) {
 
     pthread_mutex_unlock(&q->mutex);
 
-    return task;
+    ClientState* client = task->client;
+
+    free(task);
+
+    return client;
 }
 
 void* worker_thread_function(void* arg) {
     (void)arg;
 
     while (1) {
-        Task* task = queue_pop(&task_queue);
-        
-        handle_work(task->client_socket, task->request_buffer);
-        
-        free(task->request_buffer);
-        free(task);
+        ClientState* client = queue_pop(&task_queue);
+
+        if (client) {
+            handle_work(client);
+        }
     }
 
     return NULL;
@@ -100,8 +105,31 @@ int set_nonblock(int fd) {
 ClientState* create_client_state(int fd) {
     ClientState* client = (ClientState*)calloc(1, sizeof(ClientState));
     client->fd = fd;
+    client->state = STATE_READ_REQUEST;
+    client->peer = NULL;
+    client->bytes_read = 0;
 
     return client;
+}
+
+void cleanup_client(ClientState* client) {
+    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client->fd, NULL);
+
+    close(client->fd);
+
+    if (client->peer) {
+        ClientState* peer = client->peer;
+
+        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, peer->fd, NULL);
+
+        close(peer->fd);
+
+        peer->peer = NULL;
+
+        free(peer);
+    }
+
+    free(client);
 }
 
 int main() {
@@ -167,7 +195,7 @@ int main() {
         return 1;
     }
 
-    int epoll_fd = epoll_create1(0);
+    epoll_fd = epoll_create1(0);
 
     if (epoll_fd == -1) {
         perror("epoll_create1");
@@ -178,6 +206,7 @@ int main() {
     struct epoll_event ev;
     ev.events = EPOLLIN;
     ev.data.fd = server_socket;
+    ev.data.ptr = create_client_state(server_socket);
 
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, server_socket, &ev) == -1) {
         perror("epoll_ctl: add server_socket");
@@ -187,7 +216,7 @@ int main() {
 
     struct epoll_event events[MAX_EPOLL_EVENTS];
 
-    printf("Server listening on port %d with %d worker threads (epoll model)\n", PORT, NUM_WORKER_THREADS);
+    printf("Server listening on port %d with %d worker threads\n", PORT, NUM_WORKER_THREADS);
 
     while (1) {
         int n_events = epoll_wait(epoll_fd, events, MAX_EPOLL_EVENTS, -1);
@@ -203,7 +232,9 @@ int main() {
         }
 
         for (int i = 0; i < n_events; i++) {
-            if (events[i].data.fd == server_socket) {
+            ClientState* client = (ClientState*)events[i].data.ptr;
+
+            if (client->fd == server_socket) {
                 while (1) {
                     client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
 
@@ -228,93 +259,87 @@ int main() {
 
                     set_nonblock(client_socket);
                     
-                    ClientState* client = create_client_state(client_socket);
+                    ClientState* new_client = create_client_state(client_socket);
                     
                     ev.events = EPOLLIN | EPOLLET;
-                    ev.data.ptr = client;
+                    ev.data.ptr = new_client;
 
                     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_socket, &ev) == -1) {
                         perror("epoll_ctl: add client_socket");
 
-                        free(client);
-                        
+                        free(new_client);
+
                         close(client_socket);
                     }
                 }
             }
-            else {
-                ClientState* client = (ClientState*)events[i].data.ptr;
-
-                while(1) {
-                    ssize_t bytes_received = recv(client->fd, client->buffer + client->bytes_read, BUFFER_SIZE - client->bytes_read - 1, 0);
+            else if (events[i].events & EPOLLIN) {
+                if (client->state == STATE_READ_REQUEST) {
+                    ssize_t bytes_received = 0;
                     
-                    if (bytes_received == -1) {
-                        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    while (client->bytes_read < BUFFER_SIZE - 1) {
+                        bytes_received = recv(client->fd, client->buffer + client->bytes_read, BUFFER_SIZE - client->bytes_read - 1, 0);
+                        
+                        if (bytes_received == -1) {
+                            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                                break;
+                            }
+                            
+                            perror("recv");
+
+                            cleanup_client(client);
+
+                            break;
+                        }
+                        if (bytes_received == 0) {
+                            cleanup_client(client);
+
+                            break;
+                        }
+
+                        client->bytes_read += bytes_received;
+                        client->buffer[client->bytes_read] = '\0';
+
+                        if (strstr(client->buffer, "\r\n\r\n")) {
+                            queue_push(&task_queue, client);
+
+                            break;
+                        }
+                    }
+                    if (client->bytes_read >= BUFFER_SIZE - 1) {
+                        fprintf(stderr, "Request too large. Closing %d\n", client->fd);
+
+                        cleanup_client(client);
+                    }
+                } 
+                else if (client->state == STATE_PROXYING) {
+                    while (1) {
+                        char bridge_buffer[BUFFER_SIZE];
+                        ssize_t bytes_read = recv(client->fd, bridge_buffer, BUFFER_SIZE, 0);
+
+                        if (bytes_read > 0) {
+                            if (client->peer && send(client->peer->fd, bridge_buffer, bytes_read, 0) < 0) {
+                                if (errno == EWOULDBLOCK || errno == EAGAIN) {
+                                    break; 
+                                }
+                                
+                                cleanup_client(client);
+                                break; 
+                            }
+                        }
+                        else if (bytes_read == 0) {
+                            cleanup_client(client);
+
                             break;
                         }
                         else {
-                            perror("recv");
-
-                            epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client->fd, NULL);
-                            
-                            close(client->fd);
-                            
-                            free(client);
+                            if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                                
+                                cleanup_client(client);
+                            }
                             
                             break;
                         }
-                    }
-                    if (bytes_received == 0) {
-                        printf("Main Thread: Client (fd=%d) disconnected.\n", client->fd);
-                        
-                        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client->fd, NULL);
-                        
-                        close(client->fd);
-                        
-                        free(client);
-                        
-                        break;
-                    }
-                    
-                    client->bytes_read += bytes_received;
-                    
-                    client->buffer[client->bytes_read] = '\0';
-                    char* eoh = strstr(client->buffer, "\r\n\r\n");
-                    
-                    if (eoh) {
-                        size_t request_len = (eoh - client->buffer) + 4;
-                        char* request_copy = safe_strndup(client->buffer, request_len);
-
-                        if (request_copy == NULL) {
-                            fprintf(stderr, "Main Thread: strndup failed. Closing socket %d.\n", client->fd);
-                            
-                            epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client->fd, NULL);
-                            
-                            close(client->fd);
-                            
-                            free(client);
-                            
-                            break;
-                        }
-                        
-                        printf("Main Thread: Full request received (fd=%d), handing to worker.\n", client->fd);
-                        
-                        queue_push(&task_queue, client->fd, request_copy);
-                        
-                        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client->fd, NULL);
-                        
-                        free(client);
-                        
-                        break;
-                    }
-                    if (client->bytes_read >= BUFFER_SIZE - 1) {
-                        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client->fd, NULL);
-                        
-                        close(client->fd);
-                        
-                        free(client);
-                        
-                        break;
                     }
                 }
             }

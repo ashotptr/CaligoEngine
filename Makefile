@@ -18,7 +18,7 @@ cgi_bin/mixtape_app: cgi_bin/mixtape_app.c
 	$(CC) $(CFLAGS) -o cgi_bin/mixtape_app cgi_bin/mixtape_app.c $(LIBS)
 
 radio_server: radio_server.c server.h
-	$(CC) $(CFLAGS) -o radio_server radio_server.c
+	$(CC) $(CFLAGS) -o radio_server radio_server.c $(LIBS)
 
 clean:
 	rm -f server radio_server cgi_bin/mixtape_app $(SERVER_OBJS) radio_server.o cgi_bin/mixtape_app.o
