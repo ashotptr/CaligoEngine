@@ -66,7 +66,7 @@ void* broadcast_thread_function(void* arg) {
     FILE* file = fopen(RADIO_PLAYLIST, "rb");
 
     if (file == NULL) {
-        perror("FATAL: Could not open radio playlist");
+        perror("radio_server: fopen");
 
         exit(1);
     }
@@ -94,7 +94,7 @@ void* broadcast_thread_function(void* arg) {
                 clock_gettime(CLOCK_MONOTONIC, &start_time);
 
                 if (file == NULL) { 
-                    perror("FATAL: Could not reopen playlist");
+                    perror("radio_server: fopen");
                     
                     exit(1); 
                 }
@@ -102,7 +102,7 @@ void* broadcast_thread_function(void* arg) {
                 continue;
             }
 
-            perror("RADIO ERROR: fread");
+            perror("radio_server: fread");
 
             sleep(1);
 
@@ -218,25 +218,29 @@ int main(void) {
         g_senders[i].thread_id = i;
         g_senders[i].client_list_head = NULL;
 
-        pthread_mutex_init(&g_senders[i].list_mutex, NULL);
-        
-        if (pthread_create(&sender_tids[i], NULL, sender_worker_thread, &g_senders[i]) != 0) {
-            perror("FATAL: Failed to create sender thread");
+        if (pthread_mutex_init(&g_senders[i].list_mutex, NULL) != 0) {
+            perror("radio_server: pthread_mutex_init");
 
             return 1;
         }
-            
+        
+        if (pthread_create(&sender_tids[i], NULL, sender_worker_thread, &g_senders[i]) != 0) {
+            perror("radio_server: pthread_create");
+
+            return 1;
+        }
+
         pthread_detach(sender_tids[i]);
     }
 
     pthread_t broadcast_tid;
 
     if (pthread_create(&broadcast_tid, NULL, broadcast_thread_function, NULL) != 0) {
-        perror("FATAL: Failed to create broadcast thread");
+        perror("radio_server: pthread_create");
 
         return 1;
     }
-    
+
     pthread_detach(broadcast_tid);
 
     server_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -248,14 +252,18 @@ int main(void) {
     }
 
     int reuse = 1;
-    
+
     if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
         perror("radio_server: setsockopt");
 
         return 1;
     }
+    
+    if (set_nonblock(server_socket) < 0) {
+        perror("radio_server: set_nonblock");
 
-    set_nonblock(server_socket);
+        return 1;
+    }
 
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
@@ -272,12 +280,24 @@ int main(void) {
 
         return 1;
     }
-    
+
     epoll_fd = epoll_create1(0);
+
+    if (epoll_fd == -1) {
+        perror("radio_server: epoll_create1");
+
+        return 1;
+    }
+
     struct epoll_event ev, events[MAX_EPOLL_EVENTS];
     ev.events = EPOLLIN;
     ev.data.fd = server_socket;
-    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, server_socket, &ev);
+
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, server_socket, &ev) == -1) {
+        perror("radio_server: epoll_ctl");
+
+        return 1;
+    }
 
     printf("[Radio Server] Live on port %d... (%d Threads)\n", RADIO_PORT, NUM_SENDER_THREADS);
 
@@ -285,6 +305,12 @@ int main(void) {
 
     while (1) {
         int nfds = epoll_wait(epoll_fd, events, MAX_EPOLL_EVENTS, -1);
+
+        if (nfds == -1) {
+            perror("radio_server: epoll_wait");
+
+            break;
+        }
 
         for (int i = 0; i < nfds; i++) {
             if (events[i].data.fd == server_socket) {
@@ -294,7 +320,14 @@ int main(void) {
                     int client_fd = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
                     
                     if (client_fd < 0) {
-                        break;
+                        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                            break;
+                        }
+                        else {
+                            perror("radio_server: accept");
+
+                            break;
+                        }
                     }
 
                     set_nonblock(client_fd);
@@ -307,12 +340,21 @@ int main(void) {
                                          "Content-Type: audio/mpeg\r\n"
                                          "Transfer-Encoding: chunked\r\n"
                                          "Connection: keep-alive\r\n\r\n";
-
-                    send(client_fd, header, strlen(header), 0);
                     
+                    send(client_fd, header, strlen(header), 0);
+
                     SenderContext* target_thread = &g_senders[current_thread_idx];
                     
                     RadioClient* new_client = malloc(sizeof(RadioClient));
+                    
+                    if (new_client == NULL) {
+                        perror("radio_server: malloc");
+
+                        close(client_fd);
+                        
+                        continue;
+                    }
+
                     new_client->fd = client_fd;
                     new_client->read_index = g_write_index;
 
@@ -332,6 +374,7 @@ int main(void) {
     }
 
     close(server_socket);
-    
+    close(epoll_fd);
+
     return 0;
 }
