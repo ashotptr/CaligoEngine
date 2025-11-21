@@ -1,7 +1,12 @@
 server
+server_http
+server_https
 radio_server
 cgi_bin/mixtape_app
 .vscode
+shell_commands_used.txt
+cert.pem
+key.pem
 *.o
 cgi_bin/*.o
 public_html/mixtape/*/*.mp3

@@ -1,24 +1,34 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -g -std=c99
-LIBS = -lpthread -ljansson
 
-all: server cgi_bin/mixtape_app radio_server
+LIBS_COMMON = -lpthread -ljansson
 
-SERVER_OBJS = server.o request_handler.o
-server: $(SERVER_OBJS)
-	$(CC) $(CFLAGS) -o server $(SERVER_OBJS) $(LIBS)
+LIBS_SSL = -lssl -lcrypto
 
-server.o: server.c server.h
-	$(CC) $(CFLAGS) -c server.c
+all: server_http server_https cgi_bin/mixtape_app radio_server
 
-request_handler.o: request_handler.c server.h
-	$(CC) $(CFLAGS) -c request_handler.c
+HTTP_OBJS = http/server.o http/request_handler.o
+
+server_http: $(HTTP_OBJS)
+	$(CC) $(CFLAGS) -o server_http $(HTTP_OBJS) $(LIBS_COMMON)
+
+http/%.o: http/%.c
+	$(CC) $(CFLAGS) -Ihttp -c $< -o $@
+
+HTTPS_OBJS = https/server.o https/request_handler.o
+
+server_https: $(HTTPS_OBJS)
+	$(CC) $(CFLAGS) -o server_https $(HTTPS_OBJS) $(LIBS_COMMON) $(LIBS_SSL)
+
+https/%.o: https/%.c
+	$(CC) $(CFLAGS) -Ihttps -c $< -o $@
 
 cgi_bin/mixtape_app: cgi_bin/mixtape_app.c
-	$(CC) $(CFLAGS) -o cgi_bin/mixtape_app cgi_bin/mixtape_app.c $(LIBS)
+	$(CC) $(CFLAGS) -o cgi_bin/mixtape_app cgi_bin/mixtape_app.c $(LIBS_COMMON)
 
-radio_server: radio_server.c server.h
-	$(CC) $(CFLAGS) -o radio_server radio_server.c $(LIBS)
+radio_server: radio_server.c https/server.h
+	$(CC) $(CFLAGS) -Ihttps -o radio_server radio_server.c $(LIBS_COMMON)
 
 clean:
-	rm -f server radio_server cgi_bin/mixtape_app $(SERVER_OBJS) radio_server.o cgi_bin/mixtape_app.o
+	rm -f server_http server_https radio_server cgi_bin/mixtape_app
+	rm -f http/*.o https/*.o
