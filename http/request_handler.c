@@ -1,6 +1,8 @@
 #include "server.h"
 #include <sys/stat.h>
 #include <limits.h>
+#include <signal.h>
+#include <fcntl.h>
 
 RouteRule g_routes[MAX_ROUTES];
 int g_route_count = 0;
@@ -216,7 +218,7 @@ static void serve_static_file(int client_socket, char* request_buffer, const cha
              "Content-Length: %ld\r\n"
              "Accept-Ranges: bytes\r\n"
              "Content-Range: bytes %ld-%ld/%ld\r\n"
-             "Connection: keep-alive\r\n\r\n",
+             "Connection: close\r\n\r\n",//idk Connection: keep-alive
              status_code, (status_code == 200 ? "OK" : "Partial Content"),
              content_type,
              content_length,
@@ -241,67 +243,211 @@ static void serve_static_file(int client_socket, char* request_buffer, const cha
 
         bytes_to_send -= bytes_read;
     }
-    
+
     fclose(file);
 }
 
 static void handle_cgi_request(int client_socket, char* request_buffer, const char* path_prefix, const char* requested_path) {
     char full_path[512];
-
+    
     snprintf(full_path, sizeof(full_path), "./%s%s", path_prefix, requested_path + strlen(path_prefix));
 
     struct stat st;
-
+    
     if (stat(full_path, &st) < 0 || !(st.st_mode & S_IXUSR)) {
-        send_404_not_found(client_socket);
-
+        send_404_not_found(client_socket); 
+        
         return;
     }
-    
-    char* query_string = "";
-    char* auth_header = find_header_value(request_buffer, "Authorization");
 
-    char* query_start = strchr(request_buffer, '?');
+    char *method = "GET";
+    int content_length = 0;
 
-    if (query_start) {
-        char* query_end = strchr(query_start, ' ');
+    if (strncmp(request_buffer, "POST", 4) == 0) {
+        method = "POST";
 
-        if (query_end) {
-            *query_end = '\0'; 
-            query_string = query_start + 1;
+        char *cl_ptr = strcasestr(request_buffer, "Content-Length:");
+
+        if (cl_ptr) {
+            content_length = atoi(cl_ptr + 15);
         }
     }
 
-    setenv("QUERY_STRING", query_string, 1);
-
-    if (auth_header) {
-        setenv("HTTP_AUTHORIZATION", auth_header, 1);
-
-        free(auth_header);
-    }
-
-    FILE* pipe = popen(full_path, "r");
-
-    if (!pipe) {
-        perror("popen failed");
-
+    int input_pipe[2], output_pipe[2];
+    
+    if (pipe(input_pipe) < 0 || pipe(output_pipe) < 0) {
+        perror("pipe");
+        
         char response[] = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
 
         send(client_socket, response, strlen(response), 0);
 
+        return; 
+    }
+
+    pid_t pid = fork();
+
+    if (pid < 0) {
+        perror("fork");
+        
+        char response[] = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
+        
+        send(client_socket, response, strlen(response), 0);
+        
         return;
     }
+    if (pid == 0) {
+        close(input_pipe[1]);
+        close(output_pipe[0]);
 
-    char buffer[1024];
-    size_t bytes_read;
+        dup2(input_pipe[0], STDIN_FILENO);
+        dup2(output_pipe[1], STDOUT_FILENO);
+        
+        setenv("REQUEST_METHOD", method, 1);
 
-    while ((bytes_read = fread(buffer, 1, sizeof(buffer), pipe)) > 0) {
-        if (send(client_socket, buffer, bytes_read, 0) < 0) {
-            break;
+        char len_str[32];
+        
+        sprintf(len_str, "%d", content_length);
+        
+        setenv("CONTENT_LENGTH", len_str, 1);
+
+        char* query_string = "";
+
+        char* query_start = strchr(request_buffer, '?');
+
+        if (query_start) {
+            char* query_end = strchr(query_start, ' ');
+
+            if (query_end) { 
+                *query_end = '\0'; 
+                query_string = query_start + 1; 
+            }
         }
-    }
 
-    pclose(pipe);
+        setenv("QUERY_STRING", query_string, 1);
+
+        char* auth_header = find_header_value(request_buffer, "Authorization");
+        
+        if (auth_header) {
+            setenv("HTTP_AUTHORIZATION", auth_header, 1);
+
+            free(auth_header);
+        }
+
+        execl(full_path, full_path, NULL); 
+        exit(1);
+    }
+    else {
+        close(input_pipe[0]);
+        close(output_pipe[1]);
+
+        if (strcmp(method, "POST") == 0 && content_length > 0) {
+            printf("DEBUG: POST request. Expecting %d bytes.\n", content_length);
+
+            char *body_start = strstr(request_buffer, "\r\n\r\n");
+            int bytes_written = 0;
+
+            if (body_start) {
+                body_start += 4;
+                
+                int header_len = body_start - request_buffer;
+                int total_buffered = strlen(request_buffer); 
+                int body_in_buffer = total_buffered - header_len;
+
+                printf("DEBUG: Found %d bytes in initial buffer.\n", body_in_buffer);
+
+                if (body_in_buffer > 0) {
+                    if (body_in_buffer > content_length) body_in_buffer = content_length;
+                    
+                    printf("DEBUG: Writing initial chunk: '%.*s'\n", body_in_buffer, body_start);
+                    
+                    write(input_pipe[1], body_start, body_in_buffer);
+
+                    bytes_written += body_in_buffer;
+                }
+            }
+
+            if (bytes_written < content_length) {
+                int remaining = content_length - bytes_written;
+
+                printf("DEBUG: Reading remaining %d bytes using epoll...\n", remaining);
+
+                int local_epoll_fd = epoll_create1(0);
+                if (local_epoll_fd == -1) {
+                    perror("epoll_create1");
+                }
+                else {
+                    struct epoll_event ev, events[1];
+                    ev.events = EPOLLIN;
+                    ev.data.fd = client_socket;
+
+                    if (epoll_ctl(local_epoll_fd, EPOLL_CTL_ADD, client_socket, &ev) == -1) {
+                        perror("epoll_ctl");
+                    }
+
+                    char buf[4096];
+                    while (remaining > 0) {
+                        int nfds = epoll_wait(local_epoll_fd, events, 1, 2000);
+
+                        if (nfds == -1) {
+                            perror("epoll_wait");
+
+                            break;
+                        }
+                        else if (nfds == 0) {
+                            printf("DEBUG: Timeout waiting for POST data\n");
+                            
+                            break;
+                        }
+
+                        ssize_t n = recv(client_socket, buf, (remaining > sizeof(buf) ? sizeof(buf) : remaining), 0);
+                        
+                        if (n > 0) {
+                            printf("DEBUG: Read %ld bytes from socket\n", n);
+                            
+                            write(input_pipe[1], buf, n);
+                            
+                            remaining -= n;
+                        }
+                        else if (n == 0) {
+                            printf("DEBUG: Client closed connection\n");
+                            
+                            break;
+                        }
+                        else {
+                            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                                continue;
+                            }
+
+                            perror("recv");
+                            
+                            break;
+                        }
+                    }
+
+                    close(local_epoll_fd);
+                }
+            }
+            else {
+                printf("DEBUG: Entire body was in first packet.\n");
+            }
+        }
+        
+        close(input_pipe[1]);
+
+        char buffer[1024];
+        ssize_t bytes_read;
+        
+        while ((bytes_read = read(output_pipe[0], buffer, sizeof(buffer))) > 0) {
+            if (send(client_socket, buffer, bytes_read, 0) < 0) {
+                break; 
+            }
+        }
+
+        close(output_pipe[0]);
+
+        waitpid(pid, NULL, 0);
+    }
 }
 
 static int check_authentication(int client_socket, char* request_buffer) {
@@ -495,27 +641,39 @@ void handle_work(ClientState* client) {
 
     if (request_buffer == NULL) {
         close(client_socket);
-
+        
         return;
     }
     
     char *path_start = strchr(request_buffer, ' ');
 
+    //idk
+    int flags = fcntl(client_socket, F_GETFL, 0);
+    fcntl(client_socket, F_SETFL, flags & ~O_NONBLOCK);
+    //idk
+
     if (!path_start) { 
         send_404_not_found(client_socket);
-
+        
         close(client_socket);
-
+        
         return; 
     }
 
+    char method[16] = {0};
+    size_t method_len = path_start - request_buffer;
+    
+    if (method_len < sizeof(method)) {
+        strncpy(method, request_buffer, method_len);
+    }
+
     path_start++;
-
+    
     char *path_end = strchr(path_start, ' ');
-
+    
     if (!path_end) { 
         send_404_not_found(client_socket); 
-
+        
         close(client_socket);
         
         return; 
@@ -529,7 +687,7 @@ void handle_work(ClientState* client) {
 
     char requested_path[256];
     size_t path_len = path_end - path_start;
-
+    
     if (path_len > sizeof(requested_path) - 1) { 
         send_404_not_found(client_socket); 
         
@@ -539,7 +697,7 @@ void handle_work(ClientState* client) {
     }
 
     strncpy(requested_path, path_start, path_len);
-
+    
     requested_path[path_len] = '\0';
     
     if (strcmp(requested_path, "/") == 0) {
@@ -548,9 +706,9 @@ void handle_work(ClientState* client) {
 
     if (strstr(requested_path, "..") != NULL) {
         send_404_not_found(client_socket);
-
+        
         close(client_socket);
-
+        
         return;
     }
 
@@ -559,7 +717,7 @@ void handle_work(ClientState* client) {
 
     for (int i = 0; i < g_route_count; i++) {
         int rule_len = strlen(g_routes[i].path);
-
+        
         if (strncmp(requested_path, g_routes[i].path, rule_len) == 0) {
             if (rule_len > best_match_len) {
                 best_match_len = rule_len;
@@ -570,14 +728,14 @@ void handle_work(ClientState* client) {
 
     if (best_rule == NULL) {
         printf("Worker Thread: 404 Not Found (No route rule for: %s)\n", requested_path);
-
+        
         send_404_not_found(client_socket);
     }
     else {
         if (best_rule->needs_auth) {
             if (!check_authentication(client_socket, request_buffer)) {
                 close(client_socket);
-
+                
                 return;
             }
         }
@@ -594,15 +752,15 @@ void handle_work(ClientState* client) {
         }
         else if (best_rule->type == ROUTE_PROXY) {
             printf("Worker Thread: Routing to PROXY: %s\n", best_rule->target);
-
+            
             handle_proxy_request_async(client);
-
+            
             return;
         }
     }
     
     client->bytes_read = 0;
     client->state = STATE_READ_REQUEST;
-
+    
     bzero(client->buffer, BUFFER_SIZE);
 }

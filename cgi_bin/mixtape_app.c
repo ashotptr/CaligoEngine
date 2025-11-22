@@ -33,6 +33,22 @@ int is_mp3(const char* name) {
 }
 
 int main(void) {
+    char *len_str = getenv("CONTENT_LENGTH");
+
+    if (len_str) {
+        int len = atoi(len_str);
+
+        if (len > 0) {
+            char *buffer = malloc(len + 1);
+
+            if (buffer) {
+                fread(buffer, 1, len, stdin);
+                
+                free(buffer);
+            }
+        }
+    }
+
     json_t* root = json_object();
     json_t* albums = json_array();
 
@@ -82,10 +98,11 @@ int main(void) {
             }
 
             const char* album_title = json_string_value(json_object_get(metadata, "albumTitle"));
+            const char* album_artist = json_string_value(json_object_get(metadata, "albumArtist"));
             const char* cover_file = json_string_value(json_object_get(metadata, "coverFile"));
             json_t* tracks_metadata = json_object_get(metadata, "tracks");
 
-            if (!album_title || !cover_file || !json_is_array(tracks_metadata)) {
+            if (!album_title || !album_artist || !cover_file || !json_is_array(tracks_metadata)) {
                 json_decref(metadata);
                 continue;
             }
@@ -93,6 +110,8 @@ int main(void) {
             json_t* album = json_object();
             
             json_object_set_new(album, "name", json_string(album_title)); 
+            
+            json_object_set_new(album, "artist", json_string(album_artist)); 
 
             char cover_url[1024];
             snprintf(cover_url, sizeof(cover_url), "%s/%s/%s", URL_BASE, album_folder_name, cover_file);

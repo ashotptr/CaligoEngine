@@ -17,6 +17,7 @@
 #include <strings.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <signal.h>
 
 #define PORT 8080
 #define RADIO_PORT 9001

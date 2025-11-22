@@ -133,6 +133,8 @@ void cleanup_client(ClientState* client) {
 }
 
 int main() {
+    signal(SIGCHLD, SIG_IGN);
+    
     int server_socket, client_socket;
     struct sockaddr_in6 server_addr, client_addr;
     socklen_t client_len = sizeof(client_addr);

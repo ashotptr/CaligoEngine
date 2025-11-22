@@ -1,242 +1,1208 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Caligo Engine</title>
+    <title>Caligo</title>
     <style>
         :root {
-            --bg-color: #101010;
-            --text-color: #e0e0e0;
-            --text-muted: #777;
-            --border-color: #222;
-            --accent-color: #c0c0c0;
-            --hover-bg: #2a2a2a;
-        }
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            margin: 0;
-            padding: 2em;
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-            box-sizing: border-box;
-        }
-        #app {
-            max-width: 1200px;
-            margin: 0 auto;
-            width: 100%;
-            flex-grow: 1;
-        }
-        h1 {
-            font-weight: 300;
-            color: #fff;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 10px;
-        }
-        .controls {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 2em;
-        }
-        .control-button {
-            padding: 12px 20px;
-            font-size: 1.1em;
-            background-color: var(--bg-color);
-            color: var(--accent-color);
-            border: 1px solid var(--border-color);
-            cursor: pointer;
-            border-radius: 4px;
-            transition: all 0.2s ease;
-        }
-        .control-button:hover {
-            background-color: var(--accent-color);
-            color: var(--bg-color);
-            border-color: var(--accent-color);
+            --bg-dark: #0a0a0a;
+            --bg-panel: #161616;
+            --bg-hover: #222222;
+            --accent: #ffffff;
+            --text-main: #e0e0e0;
+            --text-muted: #808080;
+            --border: #333333;
+            --error: #cf6679;
         }
 
-        #artist-name {
-            font-size: 1.5em;
-            font-weight: 600;
-            color: #fff;
-            margin-bottom: 1em;
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
         }
-        #album-grid {
+
+        .sidebar {
+            width: 240px;
+            background-color: #000000;
+            display: flex;
+            flex-direction: column;
+            padding: 32px 16px;
+            flex-shrink: 0;
+            border-right: 1px solid #1a1a1a;
+        }
+
+        .brand {
+            color: var(--accent);
+            font-size: 20px;
+            font-weight: 700;
+            padding: 0 16px;
+            margin-bottom: 40px;
+            letter-spacing: -0.5px;
+            text-transform: uppercase;
+        }
+
+        .nav-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            text-align: left;
+            padding: 12px 16px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 14px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 4px;
+        }
+
+        .nav-btn:hover {
+            color: var(--text-main);
+            background-color: var(--bg-hover);
+        }
+
+        .nav-btn.active {
+            color: var(--bg-dark);
+            background-color: var(--accent);
+            font-weight: 600;
+        }
+
+        .nav-btn span {
+            font-size: 16px;
+            opacity: 0.8;
+        }
+
+        .main-view {
+            flex-grow: 1;
+            background: var(--bg-dark);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .top-bar {
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            background-color: rgba(10, 10, 10, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            z-index: 10;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .search-container {
+            display: flex;
+            align-items: center;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 500px;
+            padding: 4px;
+            transition: border-color 0.2s;
+        }
+
+        .search-container:focus-within {
+            border-color: #666;
+        }
+
+        .search-container input {
+            border: none;
+            padding: 8px 16px;
+            width: 280px;
+            background: transparent;
+            color: var(--text-main);
+            font-size: 14px;
+            outline: none;
+        }
+
+        .search-container select {
+            background: transparent;
+            color: var(--text-muted);
+            border: none;
+            font-size: 13px;
+            border-left: 1px solid #333;
+            padding-left: 10px;
+            margin-right: 10px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .auth-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn-primary {
+            background-color: var(--accent);
+            color: var(--bg-dark);
+            border: none;
+            padding: 10px 24px;
+            border-radius: 500px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: scale(1.02);
+        }
+
+        .btn-primary:disabled {
+            background-color: #444;
+            color: #888;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-main);
+            border: 1px solid #444;
+            padding: 9px 20px;
+            border-radius: 500px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent);
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .user-display {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .logout-icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-muted);
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+
+        .logout-icon:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--accent);
+        }
+
+        .content-area {
+            padding: 20px 40px 120px 40px;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            letter-spacing: -0.02em;
+            color: var(--accent);
+        }
+
+        .grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 20px;
+            gap: 24px;
         }
-        .album-item {
-            background-color: transparent;
+
+        .card {
+            background-color: var(--bg-panel);
+            padding: 16px;
             border-radius: 8px;
-            overflow: hidden;
+            transition: background-color 0.3s ease;
             cursor: pointer;
-            transition: background-color 0.2s ease;
+            border: 1px solid transparent;
         }
-        .album-item:hover {
-            background-color: var(--hover-bg);
+
+        .card:hover {
+            background-color: var(--bg-hover);
+            border-color: #333;
         }
-        .album-item img {
+
+        .card img {
             width: 100%;
-            height: 180px;
+            aspect-ratio: 1;
             object-fit: cover;
-            background-color: var(--border-color);
             border-radius: 4px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            filter: grayscale(20%);
+            transition: filter 0.3s;
         }
-        .album-item p {
-            margin: 10px 5px;
-            font-size: 0.9em;
-            color: var(--text-color);
+
+        .card:hover img {
+            filter: grayscale(0%);
+        }
+
+        .card-title {
+            font-weight: 600;
+            font-size: 15px;
+            margin-bottom: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-main);
+        }
+
+        .card-sub {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .list-view {
+            display: none;
+            flex-direction: column;
+        }
+
+        .track-row {
+            padding: 14px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s;
+            color: var(--text-muted);
+        }
+
+        .track-row:hover {
+            background-color: var(--bg-hover);
+            color: var(--text-main);
+        }
+
+        .track-row.active {
+            background-color: var(--bg-hover);
+            color: var(--accent);
+            box-shadow: inset 4px 0 0 var(--accent);
+        }
+
+        .track-row.active span {
+            font-weight: 600;
+        }
+
+        .player-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #000;
+            border-top: 1px solid #222;
+            padding: 15px 32px;
+            display: grid;
+            grid-template-columns: 1fr 600px 1fr;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .player-info {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-width: 0;
+        }
+
+        #np-title {
+            color: var(--text-main);
+            font-weight: 600;
+            font-size: 14px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
-        #now-playing {
+        #np-album {
+            color: var(--text-muted);
+            font-size: 12px;
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        audio {
+            width: 100%;
+            height: 40px;
+            opacity: 1;
+        }
+
+        audio.radio-mode::-webkit-media-controls-current-time-display,
+        audio.radio-mode::-webkit-media-controls-time-remaining-display,
+        audio.radio-mode::-webkit-media-controls-timeline {
+            display: none;
+        }
+
+        .modal-overlay {
             position: fixed;
-            bottom: 0;
+            top: 0;
             left: 0;
             width: 100%;
-            background-color: #181818;
-            border-top: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
             justify-content: center;
-            padding: 10px;
-            box-sizing: border-box;
-            z-index: 100;
+            align-items: center;
+            z-index: 1000;
         }
-        #now-playing audio {
-            width: 80%;
-            max-width: 600px;
-            filter: invert(1) grayscale(1) contrast(1.5);
+
+        .modal-box {
+            background: #1a1a1a;
+            padding: 40px;
+            border-radius: 12px;
+            width: 340px;
+            box-shadow: 0 24px 48px rgba(0, 0, 0, 0.8);
+            text-align: center;
+            border: 1px solid #333;
+        }
+
+        .modal-box h2 {
+            margin-top: 0;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .input-group {
+            margin-bottom: 24px;
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+        }
+
+        .input-group input,
+        .input-group select {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            background: #0a0a0a;
+            color: white;
+            box-sizing: border-box;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .input-group input:focus {
+            border-color: #666;
+            outline: none;
+        }
+
+        .auth-error {
+            color: var(--error);
+            font-size: 13px;
+            margin-bottom: 20px;
+            min-height: 18px;
+        }
+
+        .switch-mode {
+            margin-top: 24px;
+            font-size: 13px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .switch-mode:hover {
+            color: var(--accent);
+            text-decoration: underline;
+        }
+
+        .playlist-select-list {
+            max-height: 200px;
+            overflow-y: auto;
+            text-align: left;
+            margin-bottom: 20px;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 6px;
+        }
+
+        .playlist-option {
+            padding: 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #222;
+            color: var(--text-muted);
+        }
+
+        .playlist-option:hover {
+            background: #222;
+            color: var(--accent);
+        }
+
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: var(--accent);
+            color: var(--bg-dark);
+            text-align: center;
+            border-radius: 6px;
+            padding: 14px 20px;
+            position: fixed;
+            z-index: 2000;
+            right: 30px;
+            bottom: 100px;
+            font-weight: 600;
+            font-size: 14px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateY(20px);
+        }
+
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+            bottom: 110px;
+            transform: translateY(0);
+        }
+
+        #btn-suggest-pass {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            display: none;
+            transition: color 0.2s;
+        }
+
+        #btn-suggest-pass:hover {
+            color: var(--accent);
+        }
+
+        @media (max-width: 768px) {
+            body {
+                display: block;
+                position: relative;
+                height: auto !important;
+                overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .sidebar {
+                position: fixed !important;
+                left: -100%;
+                top: 0;
+                height: 100vh;
+                width: 80%;
+                z-index: 1000;
+                transition: left 0.3s ease;
+                box-shadow: 5px 0 15px rgba(0, 0, 0, 0.5);
+            }
+
+            .sidebar.active {
+                left: 0;
+            }
+
+            .main-content {
+                width: 100%;
+                padding: 15px;
+                height: auto !important;
+                overflow: visible !important;
+                padding-bottom: 120px;
+            }
+
+            .top-bar {
+                gap: 15px;
+                position: sticky;
+                top: 0;
+                background-color: var(--bg-dark);
+                z-index: 900;
+                padding: 10px 0;
+            }
+
+            #mobile-menu-btn {
+                display: block !important;
+                background: transparent;
+                border: none;
+                color: var(--accent);
+                font-size: 24px;
+                cursor: pointer;
+                padding: 5px 10px;
+            }
+
+            #grid-container {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                gap: 15px;
+            }
+
+            .album-card img {
+                height: 140px;
+            }
+
+            .player-bar {
+                padding: 10px;
+                justify-content: space-between;
+            }
+
+            .volume-control {
+                display: none;
+            }
+
+            .track-info {
+                max-width: 40%;
+            }
+
+            .track-info h4,
+            .track-info p {
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .player-controls {
+                gap: 20px;
+            }
+
+            .player-controls button {
+                font-size: 20px;
+                padding: 10px;
+            }
+
+            .modal-content {
+                width: 90%;
+                max-height: 80vh;
+                overflow-y: auto;
+            }
+
+            .filter-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .filter-bar select,
+            .filter-bar button {
+                width: 100%;
+                margin-top: 10px;
+            }
         }
     </style>
 </head>
+
 <body>
-    <div id="app">
-        <h1>Caligo Engine</h1>
-        
-        <div class="controls">
-            <button id="btn-mixtape" class="control-button">Thesaurarium</button>
-            <button id="btn-radio" class="control-button">Radio</button>
+    <div class="sidebar">
+        <div class="brand">Caligo.</div>
+        <button class="nav-btn active" onclick="loadView('mixtape')">
+            Thesaurarium
+        </button>
+        <button class="nav-btn" onclick="loadView('radio')">
+            Radio
+        </button>
+        <div style="border-top: 1px solid #222; margin: 24px 0 12px 0;"></div>
+        <button class="nav-btn" id="btn-my-playlists" onclick="loadPlaylists()" style="display: none;">
+            My Collections
+        </button>
+        <button class="nav-btn" id="btn-create-pl"
+            onclick="document.getElementById('new-pl-name').value=''; openModal('create-pl-modal')"
+            style="display: none;">
+            <span>＋</span> Create Playlist
+        </button>
+    </div>
+
+    <div class="main-view">
+        <div class="top-bar">
+            <button id="mobile-menu-btn" style="display:none;">☰</button>
+
+            <div class="search-container">
+                <select id="artist-filter" onchange="applyFilters()">
+                    <option value="">All Artists</option>
+                </select>
+                <input type="text" id="search-bar" placeholder="Search..." onkeyup="applyFilters()">
+            </div>
+
+            <div class="auth-section" id="auth-container">
+            </div>
         </div>
 
-        <h2 id="title"></h2>
-        <div id="album-grid"></div>
+        <div class="content-area">
+            <button id="back-btn" class="btn-secondary" style="display:none; margin-bottom: 24px;"
+                onclick="backToGrid()">← Back</button>
+            <h1 id="page-title">Thesaurarium</h1>
+
+            <div id="grid-container" class="grid"></div>
+
+            <div id="list-container" class="list-view"></div>
+        </div>
     </div>
 
-    <div id="now-playing">
-        <audio id="audio-player" controls autoplay>
-            Your browser does not support the audio element.
-        </audio>
+    <div class="player-footer">
+        <div class="player-info">
+            <div id="np-title"></div>
+            <div id="np-album"></div>
+        </div>
+        <audio id="audio-player" controls preload="auto"></audio>
+        <div></div>
     </div>
 
+    <div id="auth-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h2 id="auth-title">Log in</h2>
+            <div class="input-group">
+                <label>Username</label>
+                <input type="text" id="auth-user" placeholder="USERNAME">
+            </div>
+            <div class="input-group">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <label style="margin:0">Password</label>
+                    <span id="btn-suggest-pass" onclick="suggestPassword()">
+                        Suggest Strong Password
+                    </span>
+                </div>
+                <input type="password" id="auth-pass" placeholder="PASSWORD">
+            </div>
+            <div class="auth-error" id="auth-msg"></div>
+
+            <button id="btn-auth-submit" class="btn-primary" style="width:100%" onclick="submitAuth()">Go</button>
+
+            <div class="switch-mode" id="auth-switch" onclick="toggleAuthMode()">
+                No account? Register here.
+            </div>
+            <div style="margin-top:24px; font-size:12px; cursor:pointer; color:#666;" onclick="closeAuth()">Close</div>
+        </div>
+    </div>
+
+    <div id="create-pl-modal" class="modal-overlay" style="z-index:1001">
+        <div class="modal-box">
+            <h2>New Collection</h2>
+            <div class="input-group">
+                <label>Collection Name</label>
+                <input type="text" id="new-pl-name" placeholder="e.g. Late Night">
+            </div>
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button class="btn-secondary"
+                    onclick="document.getElementById('create-pl-modal').style.display='none'">Cancel</button>
+                <button class="btn-primary" onclick="submitCreatePlaylist()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="add-track-modal" class="modal-overlay" style="z-index:1002">
+        <div class="modal-box">
+            <h2>Add to Collection</h2>
+            <p id="track-to-add-name" style="color:#888; font-size:13px; margin-bottom:20px;"></p>
+
+            <div id="playlist-select-container" class="playlist-select-list">
+            </div>
+
+            <button class="btn-secondary" style="width:100%"
+                onclick="document.getElementById('add-track-modal').style.display='none'">Cancel</button>
+        </div>
+    </div>
+
+    <div id="toast">Notification</div>
+    <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
     <script>
+        const API_AUTH = '/cgi_bin/auth_app';
+        const API_MIX = '/cgi_bin/mixtape_app';
+        const API_PLAYLIST = '/cgi_bin/playlist_manager';
+
+        let currentUser = localStorage.getItem('caligo_user');
+        let currentPass = localStorage.getItem('caligo_pass');
+        let isRegisterMode = false;
+        let allAlbums = [];
+
+        let currentAlbumName = "";
+
+        let currentQueue = [];
+        let currentTrackIndex = -1;
+        let trackPendingAdd = null;
+
         document.addEventListener('DOMContentLoaded', () => {
-            const title = document.getElementById('title');
-            const albumGrid = document.getElementById('album-grid');
-            const audioPlayer = document.getElementById('audio-player');
-            
-            const btnMixtape = document.getElementById('btn-mixtape');
-            const btnRadio = document.getElementById('btn-radio');
+            updateUIState();
+            loadView('mixtape');
 
-            btnRadio.addEventListener('click', () => {
-                title.textContent = 'Radio Stream';
-                albumGrid.innerHTML = '<p>Connecting to live broadcast...</p>';
-                
-                audioPlayer.src = '/radio/'; 
-                audioPlayer.load();
-                audioPlayer.play();
+            const player = document.getElementById('audio-player');
+            player.addEventListener('ended', () => {
+                if (currentTrackIndex < currentQueue.length - 1) {
+                    playTrack(currentTrackIndex + 1);
+                }
             });
-
-            btnMixtape.addEventListener('click', () => {
-                loadMixtape();
-            });
-
-            let mixtapeData = null;
-
-            async function loadMixtape() {
-                title.textContent = 'Thesaurarium';                
-                albumGrid.innerHTML = '';
-                
-                try {
-                    if (!mixtapeData) {
-                        const response = await fetch('/cgi_bin/mixtape_app', {
-                            headers: {
-                                'Authorization': 'Basic ' + btoa('admin:password123')
-                            }
-                        });
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! status: ${response.status}`);
-                        }
-                        mixtapeData = await response.json();
-                    }
-
-                    if (mixtapeData.albums && mixtapeData.albums.length > 0) {
-                        console.log("Mixtape Data:", mixtapeData);
-                        mixtapeData.albums.forEach(album => {
-                            const item = document.createElement('div');
-                            item.className = 'album-item';
-                            
-                            const coverSrc = album.cover || 'https://placehold.co/180x180/101010/777?text=?';
-
-                            item.innerHTML = `
-                                <img src="${coverSrc}" alt="${album.name}" onerror="this.src='https://placehold.co/180x180/101010/777?text=ERR'">
-                                <p title="${album.name}">${album.name}</p>
-                            `;
-                            
-                            item.addEventListener('click', () => {
-                                showAlbumTracks(album);
-                            });
-                            albumGrid.appendChild(item);
-                        });
-                    } else {
-                        albumGrid.innerHTML = '<p>No albums found in mixtape.</p>';
-                    }
-                }
-                catch (error) {
-                    console.error("Error fetching data:", error);
-                    albumGrid.innerHTML = '<p>Error loading results. Is the server running?</p>';
-                    mixtapeData = null;
-                }
-            }
-
-            function showAlbumTracks(album) {
-                title.textContent = album.name;
-                
-                albumGrid.innerHTML = '';
-                
-                const backButton = document.createElement('button');
-                backButton.textContent = 'Back to Thesaurarium';
-                backButton.className = 'control-button';
-                backButton.style.marginBottom = '1em';
-                backButton.addEventListener('click', loadMixtape);
-                albumGrid.appendChild(backButton);
-
-                if (album.tracks && album.tracks.length > 0) {
-                    album.tracks.forEach(track => {
-                        const item = document.createElement('div');
-                        
-                        item.className = 'album-item'; 
-                        item.innerHTML = `<p title="${track.title}">${track.title}</p>`;
-                        
-                        item.addEventListener('click', () => {
-                            console.log('Playing:', track.title, track.audio_url);
-                            audioPlayer.src = track.audio_url;
-                            audioPlayer.play();
-                        });
-                        albumGrid.appendChild(item);
-                    });
-                } else {
-                    albumGrid.innerHTML += '<p>No tracks found in this album.</p>';
-                }
-            }
-
-            loadMixtape();
         });
+
+        function toggleSidebar() {
+            document.querySelector('.sidebar').classList.toggle('active');
+            document.getElementById('sidebar-overlay').classList.toggle('active');
+        }
+
+        function updateUIState() {
+            const container = document.getElementById('auth-container');
+            const btnMyPl = document.getElementById('btn-my-playlists');
+            const btnCreatePl = document.getElementById('btn-create-pl');
+
+            if (currentUser) {
+                container.innerHTML = `
+                    <div class="user-display">
+                        <span>${currentUser}</span>
+                        <div class="logout-icon" onclick="logout()" title="Logout">✕</div>
+                    </div>
+                `;
+                btnMyPl.style.display = 'flex';
+                btnCreatePl.style.display = 'flex';
+            } else {
+                container.innerHTML = `
+                    <button class="btn-secondary" onclick="openAuth('register')">Sign up</button>
+                    <button class="btn-primary" onclick="openAuth('login')">Log in</button>
+                `;
+                btnMyPl.style.display = 'none';
+                btnCreatePl.style.display = 'none';
+            }
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = 'show';
+            setTimeout(() => { t.className = t.className.replace('show', ''); }, 3000);
+        }
+
+        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+
+        function openAuth(mode) {
+            isRegisterMode = (mode === 'register');
+            renderAuthModal();
+            openModal('auth-modal');
+            document.getElementById('auth-msg').textContent = '';
+        }
+
+        function closeAuth() {
+            document.getElementById('auth-modal').style.display = 'none';
+        }
+
+        function toggleAuthMode() {
+            isRegisterMode = !isRegisterMode;
+            renderAuthModal();
+        }
+
+        function suggestPassword() {
+            const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+            let pass = "";
+            for (let i = 0; i < 14; i++) {
+                pass += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            const input = document.getElementById('auth-pass');
+            input.value = pass;
+            input.type = "text";
+            input.select();
+            showToast("Password Copied");
+        }
+
+        function renderAuthModal() {
+            const title = document.getElementById('auth-title');
+            const switcher = document.getElementById('auth-switch');
+            const suggestBtn = document.getElementById('btn-suggest-pass');
+            const passInput = document.getElementById('auth-pass');
+
+            passInput.type = "password";
+            passInput.value = "";
+
+            if (isRegisterMode) {
+                title.textContent = "Create Account";
+                switcher.textContent = "Already have an account? Log in.";
+                suggestBtn.style.display = 'block';
+            } else {
+                title.textContent = "Log In";
+                switcher.textContent = "No account? Register here.";
+                suggestBtn.style.display = 'none';
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            currentPass = null;
+            localStorage.removeItem('caligo_user');
+            localStorage.removeItem('caligo_pass');
+
+            const player = document.getElementById('audio-player');
+            player.pause();
+            player.src = "";
+
+            document.getElementById('np-title').textContent = "";
+            document.getElementById('np-album').textContent = "";
+
+            updateUIState();
+            showToast("Logged out");
+            loadView('mixtape');
+        }
+
+        async function submitAuth() {
+            const u = document.getElementById('auth-user').value;
+            const p = document.getElementById('auth-pass').value;
+            const msg = document.getElementById('auth-msg');
+            const btn = document.getElementById('btn-auth-submit');
+
+            if (!u || !p) { msg.textContent = "Please fill in all fields"; return; }
+
+            btn.disabled = true;
+            btn.textContent = "Processing...";
+            msg.textContent = "";
+
+            const action = isRegisterMode ? 'register' : 'login';
+            const res = await apiCall(API_AUTH, { action: action, name: u, password: p });
+
+            btn.disabled = false;
+            btn.textContent = "Go";
+
+            if (res.success) {
+                currentUser = u;
+                currentPass = p;
+                localStorage.setItem('caligo_user', u);
+                localStorage.setItem('caligo_pass', p);
+
+                updateUIState();
+                closeAuth();
+                showToast(isRegisterMode ? `Welcome, ${u}!` : `Welcome back, ${u}`);
+                loadView('mixtape');
+            } else {
+                msg.textContent = res.error || "Authentication failed";
+            }
+        }
+
+        async function apiCall(url, data) {
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const text = await res.text();
+                return text ? JSON.parse(text) : {};
+            } catch (e) {
+                console.error(e);
+                return { success: false, error: "Network Error" };
+            }
+        }
+
+        async function loadView(view) {
+            const title = document.getElementById('page-title');
+            const grid = document.getElementById('grid-container');
+            const list = document.getElementById('list-container');
+            const backBtn = document.getElementById('back-btn');
+            const searchContainer = document.querySelector('.search-container');
+
+            grid.style.display = 'grid';
+            list.style.display = 'none';
+            backBtn.style.display = 'none';
+
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector('.sidebar').classList.remove('active');
+            document.getElementById('sidebar-overlay').classList.remove('active');
+            if (view === 'mixtape') {
+                title.textContent = "Thesaurarium";
+                document.querySelector('.nav-btn[onclick="loadView(\'mixtape\')"]').classList.add('active');
+
+                searchContainer.style.visibility = 'visible';
+                searchContainer.style.opacity = '1';
+
+                grid.innerHTML = '<p style="color:#666; padding:20px;">Loading...</p>';
+
+                const res = await apiCall(API_MIX, {});
+                allAlbums = res.albums || [];
+                populateFilters();
+                renderAlbums(allAlbums);
+            }
+            else if (view === 'radio') {
+                title.textContent = "Radio";
+                document.querySelector('.nav-btn[onclick="loadView(\'radio\')"]').classList.add('active');
+
+                searchContainer.style.visibility = 'hidden';
+                searchContainer.style.opacity = '0';
+
+                document.getElementById('np-title').textContent = "";
+                document.getElementById('np-album').textContent = "";
+
+                const player = document.getElementById('audio-player');
+                player.classList.add('radio-mode');
+                player.src = '/radio/';
+
+                grid.innerHTML = `
+                    <div id="radio-card" style="grid-column: 1/-1; background: #161616; padding: 80px; border-radius: 8px; text-align: center; border: 1px solid #333;">
+                        <h2 style="color:white; font-weight:600; margin-bottom:12px;">Tuning In...</h2>
+                        <p style="color:#666; font-size:14px;">Establishing connection to the stream.</p>
+                    </div>`;
+
+                player.onplaying = () => {
+                    const card = document.getElementById('radio-card');
+                    if (card) {
+                        card.innerHTML = `
+                            <h2 style="color:white; font-weight:600; margin-bottom:12px;">Live Feed</h2>
+                            <p style="color:#888; font-size:14px;">You are listening to the broadcast.</p>
+                        `;
+                    }
+                };
+
+                player.play().catch(e => {
+                    const card = document.getElementById('radio-card');
+                    if (card) card.innerHTML = `
+                        <h2 style="color:white; font-weight:600; margin-bottom:12px;">Ready</h2>
+                        <p style="color:#666; font-size:14px;">Press play to start the stream.</p>
+                     `;
+                });
+            }
+        }
+
+        async function loadPlaylists() {
+            if (!currentUser) return;
+            const searchContainer = document.querySelector('.search-container');
+
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-my-playlists').classList.add('active');
+
+
+            document.querySelector('.sidebar').classList.remove('active');
+            document.getElementById('sidebar-overlay').classList.remove('active');
+
+            searchContainer.style.visibility = 'hidden';
+            searchContainer.style.opacity = '0';
+
+            const res = await apiCall(API_PLAYLIST, { action: 'get_playlists', username: currentUser });
+            const playlists = res.playlists || {};
+
+            allAlbums = Object.keys(playlists).map(k => ({
+                name: k,
+                artist: playlists[k].length + ' tracks',
+                cover: 'https://placehold.co/300x300/111/333?text=PL',
+                tracks: playlists[k],
+                isPlaylist: true
+            }));
+
+            backToGrid();
+        }
+
+        function backToGrid() {
+            const isMyCollections = document.getElementById('btn-my-playlists').classList.contains('active');
+            document.getElementById('page-title').textContent = isMyCollections ? 'My Collections' : 'Thesaurarium';
+
+            document.getElementById('grid-container').style.display = 'grid';
+            document.getElementById('list-container').style.display = 'none';
+            document.getElementById('back-btn').style.display = 'none';
+
+            applyFilters();
+        }
+
+        function renderAlbums(list) {
+            const grid = document.getElementById('grid-container');
+            grid.innerHTML = '';
+
+            if (list.length === 0) { grid.innerHTML = '<p style="color:#666">Nothing found.</p>'; return; }
+
+            list.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'card';
+                const img = item.cover || 'https://placehold.co/300x300/111/333?text=No+Cover';
+
+                el.innerHTML = `
+                    <img src="${img}">
+                    <div class="card-title">${item.name}</div>
+                    <div class="card-sub">${item.artist}</div>
+                `;
+
+                el.onclick = () => showTracks(item);
+                grid.appendChild(el);
+            });
+        }
+
+        function showTracks(album) {
+            const grid = document.getElementById('grid-container');
+            const list = document.getElementById('list-container');
+            const title = document.getElementById('page-title');
+            const backBtn = document.getElementById('back-btn');
+
+            title.textContent = album.name;
+            currentAlbumName = album.name;
+
+            grid.style.display = 'none';
+            list.style.display = 'flex';
+            backBtn.style.display = 'inline-block';
+
+            list.innerHTML = '';
+
+            if (!album.tracks || album.tracks.length === 0) {
+                list.innerHTML = '<p style="padding:20px; color:#666;">No tracks in this collection.</p>';
+                return;
+            }
+
+            currentQueue = album.tracks;
+
+            album.tracks.forEach((t, idx) => {
+                const row = document.createElement('div');
+                row.className = 'track-row';
+                row.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:16px;">
+                        <span style="color:#444; width:20px; font-size:12px;">${idx + 1}</span>
+                        <span style="font-weight:500">${t.title}</span>
+                    </div>
+                    <div>
+                        ${currentUser && !album.isPlaylist ? `<button class="btn-secondary" style="padding:4px 10px; font-size:10px;" onclick="initAddToPlaylist(event, ${idx})">＋</button>` : ''}
+                    </div>
+                `;
+                row.addEventListener('click', (e) => {
+                    if (e.target.tagName !== 'BUTTON') {
+                        playTrack(idx);
+                    }
+                });
+                list.appendChild(row);
+            });
+        }
+
+        function playTrack(idx) {
+            if (idx < 0 || idx >= currentQueue.length) return;
+
+            currentTrackIndex = idx;
+            const t = currentQueue[idx];
+            const player = document.getElementById('audio-player');
+            player.classList.remove('radio-mode');
+
+            player.src = t.audio_url;
+            player.play();
+
+            document.getElementById('np-title').textContent = t.title;
+            document.getElementById('np-album').textContent = currentAlbumName;
+
+            showToast(`Playing: ${t.title}`);
+
+            const rows = document.querySelectorAll('.track-row');
+            rows.forEach((r, i) => {
+                if (i === idx) r.classList.add('active');
+                else r.classList.remove('active');
+            });
+        }
+
+        async function submitCreatePlaylist() {
+            const name = document.getElementById('new-pl-name').value;
+            if (!name) return;
+
+            await apiCall(API_PLAYLIST, {
+                action: 'create_playlist',
+                username: currentUser,
+                playlist_name: name
+            });
+
+            document.getElementById('create-pl-modal').style.display = 'none';
+            showToast("Collection created");
+            loadPlaylists();
+        }
+
+        async function initAddToPlaylist(e, idx) {
+            e.stopPropagation();
+            trackPendingAdd = currentQueue[idx];
+
+            const container = document.getElementById('playlist-select-container');
+            const nameDisplay = document.getElementById('track-to-add-name');
+            nameDisplay.textContent = `Adding: ${trackPendingAdd.title}`;
+            container.innerHTML = "<p style='padding:10px; color:#666;'>Loading...</p>";
+
+            openModal('add-track-modal');
+
+            const res = await apiCall(API_PLAYLIST, { action: 'get_playlists', username: currentUser });
+            const playlists = Object.keys(res.playlists || {});
+
+            container.innerHTML = '';
+            if (playlists.length === 0) {
+                container.innerHTML = '<p style="padding:10px; color:#666;">No collections found. Create one first!</p>';
+            } else {
+                playlists.forEach(plName => {
+                    const div = document.createElement('div');
+                    div.className = 'playlist-option';
+                    div.textContent = plName;
+                    div.onclick = () => confirmAddToPlaylist(plName);
+                    container.appendChild(div);
+                });
+            }
+        }
+
+        async function confirmAddToPlaylist(playlistName) {
+            if (!trackPendingAdd) return;
+
+            const res = await apiCall(API_PLAYLIST, {
+                action: 'add_to_playlist',
+                username: currentUser,
+                playlist_name: playlistName,
+                track: trackPendingAdd
+            });
+
+            document.getElementById('add-track-modal').style.display = 'none';
+
+            if (res.status === 'success') {
+                showToast(`Added to ${playlistName}`);
+            } else {
+                showToast("Error adding track");
+            }
+        }
+
+        function populateFilters() {
+            const select = document.getElementById('artist-filter');
+            const artists = new Set(allAlbums.map(a => a.artist).filter(x => x && x !== 'Unknown'));
+            select.innerHTML = '<option value="">All Artists</option>';
+            artists.forEach(a => {
+                select.innerHTML += `<option value="${a}">${a}</option>`;
+            });
+        }
+
+        function applyFilters() {
+            const term = document.getElementById('search-bar').value.toLowerCase();
+            const artist = document.getElementById('artist-filter').value;
+
+            const filtered = allAlbums.filter(a => {
+                const matchesTerm = (a.name && a.name.toLowerCase().includes(term));
+                const matchesArtist = !artist || a.artist === artist;
+                return matchesTerm && matchesArtist;
+            });
+
+            const grid = document.getElementById('grid-container');
+            if (grid.style.display === 'none') backToGrid();
+
+            renderAlbums(filtered);
+        }
+
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const sidebar = document.querySelector('.sidebar');
+        const mainContent = document.querySelector('.main-view');
+
+        if (mobileMenuBtn) {
+            mobileMenuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                sidebar.classList.toggle('active');
+            });
+        }
+
+        if (mainContent) {
+            mainContent.addEventListener('click', () => {
+                if (sidebar.classList.contains('active')) {
+                    sidebar.classList.remove('active');
+                }
+            });
+        }
     </script>
 </body>
+
 </html>

@@ -17,10 +17,11 @@
 #include <strings.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <signal.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
-#define PORT 8080
+#define PORT 8081
 #define RADIO_PORT 9001
 #define BUFFER_SIZE 4096
 #define NUM_WORKER_THREADS 8

@@ -2,11 +2,15 @@ server
 server_http
 server_https
 radio_server
+playlist_manager
+auth_app
 cgi_bin/mixtape_app
 .vscode
 shell_commands_used.txt
 cert.pem
 key.pem
+data/users.json
+cgi_debug.log
 *.o
 cgi_bin/*.o
 public_html/mixtape/*/*.mp3
