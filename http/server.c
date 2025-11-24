@@ -112,29 +112,47 @@ ClientState* create_client_state(int fd) {
     return client;
 }
 
+pthread_mutex_t cleanup_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 void cleanup_client(ClientState* client) {
-    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client->fd, NULL);
+    if (!client) {
+        return;
+    }
+
+    pthread_mutex_lock(&cleanup_mutex);
+
+    if (client->fd == -1) {
+        pthread_mutex_unlock(&cleanup_mutex);
+        return;
+    }
+
+    if (epoll_fd != -1) {
+        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client->fd, NULL);
+    }
 
     close(client->fd);
+    client->fd = -1;
 
     if (client->peer) {
         ClientState* peer = client->peer;
-
-        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, peer->fd, NULL);
-
-        close(peer->fd);
+        
+        if (peer->fd != -1) {
+            shutdown(peer->fd, SHUT_RDWR);
+        }
 
         peer->peer = NULL;
-
-        free(peer);
+        client->peer = NULL;
     }
 
+    pthread_mutex_unlock(&cleanup_mutex);
+    
     free(client);
 }
 
 int main() {
     signal(SIGCHLD, SIG_IGN);
-    
+    signal(SIGPIPE, SIG_IGN);
+
     int server_socket, client_socket;
     struct sockaddr_in6 server_addr, client_addr;
     socklen_t client_len = sizeof(client_addr);
@@ -303,6 +321,8 @@ int main() {
                         client->buffer[client->bytes_read] = '\0';
 
                         if (strstr(client->buffer, "\r\n\r\n")) {
+                            epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client->fd, NULL);
+
                             queue_push(&task_queue, client);
 
                             break;

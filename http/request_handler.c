@@ -3,6 +3,7 @@
 #include <limits.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <sys/wait.h>
 
 RouteRule g_routes[MAX_ROUTES];
 int g_route_count = 0;
@@ -400,8 +401,8 @@ static void handle_cgi_request(int client_socket, char* request_buffer, const ch
                             break;
                         }
 
-                        ssize_t n = recv(client_socket, buf, (remaining > sizeof(buf) ? sizeof(buf) : remaining), 0);
-                        
+                        ssize_t n = recv(client_socket, buf, (remaining > (int)sizeof(buf) ? (int)sizeof(buf) : remaining), 0);                        
+
                         if (n > 0) {
                             printf("DEBUG: Read %ld bytes from socket\n", n);
                             
@@ -752,15 +753,41 @@ void handle_work(ClientState* client) {
         }
         else if (best_rule->type == ROUTE_PROXY) {
             printf("Worker Thread: Routing to PROXY: %s\n", best_rule->target);
-            
+                
             handle_proxy_request_async(client);
             
-            return;
+            set_nonblock(client->fd);
+
+            struct epoll_event ev;
+            ev.events = EPOLLIN | EPOLLET;
+            ev.data.ptr = client;
+            
+            if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client->fd, &ev) == -1) {
+                perror("Worker Thread: Failed to re-add proxy client to epoll");
+
+                close(client->fd);
+
+                return;
+            }
+            
+            return; 
         }
     }
     
     client->bytes_read = 0;
     client->state = STATE_READ_REQUEST;
-    
+
     bzero(client->buffer, BUFFER_SIZE);
+
+    set_nonblock(client->fd);
+
+    struct epoll_event ev;
+    ev.events = EPOLLIN | EPOLLET;
+    ev.data.ptr = client;
+
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client->fd, &ev) == -1) {
+        perror("Worker Thread: Failed to re-arm client in epoll");
+
+        close(client->fd);
+    }
 }
