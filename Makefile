@@ -5,7 +5,7 @@ LIBS_COMMON = -lpthread -ljansson
 
 LIBS_SSL = -lssl -lcrypto
 
-all: server_http server_https cgi_bin/mixtape_app radio_server cgi_bin/playlist_manager cgi_bin/auth_app
+all: server_http server_https cgi_bin/mixtape_app radio_server cgi_bin/playlist_manager cgi_bin/auth_app cgi_bin/request_song
 
 HTTP_OBJS = http/server.o http/request_handler.o
 HTTPS_OBJS = https/server.o https/request_handler.o
@@ -22,6 +22,9 @@ server_https: $(HTTPS_OBJS)
 https/%.o: https/%.c
 	$(CC) $(CFLAGS) -Ihttps -c $< -o $@
 
+radio_server: radio_server.c https/server.h
+	$(CC) $(CFLAGS) -Ihttps -o radio_server radio_server.c $(LIBS_COMMON)
+	
 cgi_bin/mixtape_app: cgi_bin/mixtape_app.c
 	$(CC) $(CFLAGS) -o cgi_bin/mixtape_app cgi_bin/mixtape_app.c $(LIBS_COMMON)
 
@@ -30,10 +33,10 @@ cgi_bin/playlist_manager: cgi_bin/playlist_manager.c
 
 cgi_bin/auth_app: cgi_bin/auth_app.c
 	$(CC) $(CFLAGS) -o cgi_bin/auth_app cgi_bin/auth_app.c $(LIBS_COMMON)
-	
-radio_server: radio_server.c https/server.h
-	$(CC) $(CFLAGS) -Ihttps -o radio_server radio_server.c $(LIBS_COMMON)
+
+cgi_bin/request_song: cgi_bin/request_song.c
+	$(CC) $(CFLAGS) -o cgi_bin/request_song cgi_bin/request_song.c
 
 clean:
-	rm -f server_http server_https radio_server cgi_bin/mixtape_app cgi_bin/playlist_manager cgi_bin/auth_app
+	rm -f server_http server_https radio_server cgi_bin/mixtape_app cgi_bin/playlist_manager cgi_bin/auth_app cgi_bin/request_song *.o
 	rm -f http/*.o https/*.o
