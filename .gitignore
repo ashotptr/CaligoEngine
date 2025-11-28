@@ -4,7 +4,10 @@ server_https
 radio_server
 playlist_manager
 auth_app
+xmppd
+bridge
 cgi_bin/mixtape_app
+cgi_bin/get_chat_rooms
 cgi_bin/request_song
 .vscode
 venv
@@ -14,6 +17,7 @@ shell_commands_used.txt
 cert.pem
 key.pem
 data/users.json
+chat_rooms.txt
 cgi_debug.log
 *.o
 cgi_bin/*.o

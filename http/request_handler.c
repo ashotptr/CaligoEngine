@@ -482,9 +482,33 @@ static int check_authentication(int client_socket, char* request_buffer) {
     return authorized;
 }
 
-static void handle_proxy_request_async(ClientState* client) {
+static void handle_proxy_request_async(ClientState* client, const char* target_url) {
     int upstream_socket;
     struct sockaddr_in upstream_addr;
+
+    char target_ip[64] = "127.0.0.1";
+    int target_port = 80;
+    const char* p = strstr(target_url, "://");
+    const char* host_start = (p) ? p + 3 : target_url;
+    
+    char* colon = strchr(host_start, ':');
+
+    if (colon) {
+        int ip_len = colon - host_start;
+
+        if ((size_t)ip_len < sizeof(target_ip)) {
+            strncpy(target_ip, host_start, ip_len);
+
+            target_ip[ip_len] = '\0';
+        }
+        
+        target_port = atoi(colon + 1);
+    }
+    else {
+        strncpy(target_ip, host_start, sizeof(target_ip) - 1);
+    }
+
+    printf("[Proxy] Connecting to %s:%d\n", target_ip, target_port);
 
     upstream_socket = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -492,15 +516,15 @@ static void handle_proxy_request_async(ClientState* client) {
         perror("proxy: socket");
 
         send_502_bad_gateway(client->fd);
-        
+
         return;
     }
 
     memset(&upstream_addr, 0, sizeof(upstream_addr));
 
     upstream_addr.sin_family = AF_INET;
-    upstream_addr.sin_port = htons(RADIO_PORT);
-    upstream_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    upstream_addr.sin_port = htons(target_port);
+    upstream_addr.sin_addr.s_addr = inet_addr(target_ip);
 
     if (connect(upstream_socket, (struct sockaddr*)&upstream_addr, sizeof(upstream_addr)) < 0) {
         perror("proxy: connect");
@@ -510,22 +534,6 @@ static void handle_proxy_request_async(ClientState* client) {
         client->bytes_read = 0;
 
         bzero(client->buffer, BUFFER_SIZE); //memset
-
-        client->state = STATE_READ_REQUEST;
-
-        close(upstream_socket);
-
-        return;
-    }
-
-    if (send(upstream_socket, client->buffer, client->bytes_read, 0) < 0) {
-        perror("proxy: send");
-
-        send_502_bad_gateway(client->fd);
-        
-        client->bytes_read = 0;
-
-        bzero(client->buffer, BUFFER_SIZE);
 
         client->state = STATE_READ_REQUEST;
 
@@ -754,20 +762,124 @@ void handle_work(ClientState* client) {
         else if (best_rule->type == ROUTE_PROXY) {
             printf("Worker Thread: Routing to PROXY: %s\n", best_rule->target);
                 
-            handle_proxy_request_async(client);
+            handle_proxy_request_async(client, best_rule->target);
             
+            //new
+            if (client->peer && client->bytes_read > 0) {
+                ssize_t sent = send(client->peer->fd, client->buffer, client->bytes_read, 0);
+
+                if (sent < 0 && (errno == EAGAIN || errno == EINPROGRESS)) {
+                    int local_epfd = epoll_create1(0);
+
+                    if (local_epfd != -1) {
+                        struct epoll_event ev_wait;
+                        ev_wait.events = EPOLLOUT;
+                        ev_wait.data.fd = client->peer->fd;
+
+                        if (epoll_ctl(local_epfd, EPOLL_CTL_ADD, client->peer->fd, &ev_wait) == 0) {
+                            struct epoll_event events[1];
+                            int nfds = epoll_wait(local_epfd, events, 1, 1000);
+                            
+                            if (nfds > 0) {
+                                int err = 0;
+                                socklen_t len = sizeof(err);
+
+                                if (getsockopt(client->peer->fd, SOL_SOCKET, SO_ERROR, &err, &len) == 0 && err == 0) {
+                                    sent = send(client->peer->fd, client->buffer, client->bytes_read, 0);
+                                }
+                            }
+                        }
+
+                        close(local_epfd);
+                    }
+                }
+            //new
+
+            //old
+            // if (client->peer && client->bytes_read > 0) {
+            //     int retries = 0;
+            //     ssize_t sent = -1;
+                
+            //     while (retries < 50) {
+            //         sent = send(client->peer->fd, client->buffer, client->bytes_read, 0);
+                    
+            //         if (sent >= 0) {
+            //             break;
+            //         }
+            //         if (errno == EAGAIN || errno == EINPROGRESS) {
+            //             usleep(1000);
+
+            //             retries++;
+            //         }
+            //         else {
+            //             break;
+            //         }
+            //     }
+            //old
+
+                if (sent < 0) {
+                    perror("Worker Thread: proxy send failed");
+                    
+                    send_502_bad_gateway(client->fd);
+                    
+                    close(client->peer->fd); 
+                    
+                    free(client->peer);
+
+                    client->peer = NULL;
+                    client->bytes_read = 0;
+
+                    bzero(client->buffer, BUFFER_SIZE);
+
+                    client->state = STATE_READ_REQUEST;
+                    
+                    return;
+                }
+
+                printf("Worker Thread: Forwarded %ld bytes to bridge.\n", sent);
+            }
+
             set_nonblock(client->fd);
 
-            struct epoll_event ev;
-            ev.events = EPOLLIN | EPOLLET;
-            ev.data.ptr = client;
+            struct epoll_event ev_client;
+            ev_client.events = EPOLLIN | EPOLLET;
+            ev_client.data.ptr = client;
             
-            if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client->fd, &ev) == -1) {
+            if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client->fd, &ev_client) == -1) {
                 perror("Worker Thread: Failed to re-add proxy client to epoll");
 
                 close(client->fd);
-
+                
                 return;
+            }
+
+            if (client->peer) {
+                set_nonblock(client->peer->fd);
+                
+                struct epoll_event ev_peer;
+                ev_peer.events = EPOLLIN | EPOLLET;
+                ev_peer.data.ptr = client->peer;
+                
+                if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client->peer->fd, &ev_peer) == -1) {
+                    if (errno == EEXIST) {
+                        if (epoll_ctl(epoll_fd, EPOLL_CTL_MOD, client->peer->fd, &ev_peer) == -1) {
+                            perror("Failed to MOD bridge socket in epoll");
+                            
+                            close(client->peer->fd);
+                        }
+                        else {
+                            printf("[DEBUG] Updated Bridge FD %d to listen for EPOLLIN (MOD)\n", client->peer->fd);
+                        }
+                    }
+                    else {
+                        perror("Failed to ADD bridge to epoll");
+                        
+                        close(client->peer->fd);
+                    }
+                } 
+                else {
+                    printf("[DEBUG] Added Bridge FD %d to epoll (ADD)\n", client->peer->fd);
+                }
             }
             
             return; 

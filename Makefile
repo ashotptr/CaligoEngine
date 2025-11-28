@@ -5,7 +5,7 @@ LIBS_COMMON = -lpthread -ljansson
 
 LIBS_SSL = -lssl -lcrypto
 
-all: server_http server_https cgi_bin/mixtape_app radio_server cgi_bin/playlist_manager cgi_bin/auth_app cgi_bin/request_song
+all: server_http server_https cgi_bin/mixtape_app radio_server xmppd bridge cgi_bin/playlist_manager cgi_bin/auth_app cgi_bin/request_song cgi_bin/get_chat_rooms
 
 HTTP_OBJS = http/server.o http/request_handler.o
 HTTPS_OBJS = https/server.o https/request_handler.o
@@ -37,6 +37,15 @@ cgi_bin/auth_app: cgi_bin/auth_app.c
 cgi_bin/request_song: cgi_bin/request_song.c
 	$(CC) $(CFLAGS) -o cgi_bin/request_song cgi_bin/request_song.c
 
+xmppd: xmppd.c
+	$(CC) $(CFLAGS) -o xmppd xmppd.c
+
+bridge: bridge.c
+	$(CC) $(CFLAGS) -o bridge bridge.c
+
+cgi_bin/get_chat_rooms: cgi_bin/get_chat_rooms.c
+	$(CC) $(CFLAGS) -o cgi_bin/get_chat_rooms cgi_bin/get_chat_rooms.c $(LIBS_COMMON)
+	
 clean:
-	rm -f server_http server_https radio_server cgi_bin/mixtape_app cgi_bin/playlist_manager cgi_bin/auth_app cgi_bin/request_song *.o
+	rm -f server_http server_https xmppd bridge radio_server cgi_bin/mixtape_app cgi_bin/playlist_manager cgi_bin/auth_app cgi_bin/request_song cgi_bin/get_chat_rooms *.o
 	rm -f http/*.o https/*.o

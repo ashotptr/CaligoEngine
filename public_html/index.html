@@ -23,13 +23,14 @@
             font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
             display: flex;
-            height: 100vh;
+            height: 100dvh;
             overflow: hidden;
             -webkit-font-smoothing: antialiased;
         }
 
         .sidebar {
             width: 240px;
+            height: calc(100dvh - 90px);
             background-color: #000000;
             display: flex;
             flex-direction: column;
@@ -88,6 +89,7 @@
             display: flex;
             flex-direction: column;
             position: relative;
+            height: calc(100dvh - 90px);
         }
 
         .top-bar {
@@ -513,7 +515,7 @@
                 position: fixed !important;
                 left: -100%;
                 top: 0;
-                height: 100vh;
+                height: calc(100dvh - 90px);
                 width: 80%;
                 z-index: 1000;
                 transition: left 0.3s ease;
@@ -562,9 +564,25 @@
                 height: 140px;
             }
 
-            .player-bar {
+            .player-footer {
+                display: flex;
+                flex-direction: column;
+                height: auto;
                 padding: 10px;
-                justify-content: space-between;
+                gap: 10px;
+            }
+            
+            .player-footer > div:last-child { 
+                display: none;
+            }
+            
+            .chat-interface {
+                height: calc(100vh - 140px);
+                padding-bottom: 90px;
+            }
+            .chat-input-bar {
+                position: relative;
+                z-index: 5;
             }
 
             .volume-control {
@@ -775,6 +793,140 @@
         opacity: 0;
         pointer-events: none;
     }
+    .chat-lobby-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+
+    .chat-room-card {
+        background-color: #111;
+        padding: 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.2s, transform 0.2s;
+        border: 1px solid transparent;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 120px;
+    }
+
+    .chat-room-card:hover {
+        background-color: #222;
+        border-color: #333;
+        transform: translateY(-2px);
+    }
+
+    .chat-room-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--accent);
+    }
+
+    .chat-room-users {
+        font-size: 12px;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .chat-interface {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 180px);
+    }
+
+    .chat-header-bar {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #333;
+        margin-bottom: 16px;
+    }
+
+    .chat-messages-area {
+        flex: 1;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding-right: 8px;
+        margin-bottom: 16px;
+    }
+
+    .chat-messages-area::-webkit-scrollbar { width: 6px; }
+    .chat-messages-area::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+    .message-bubble {
+        max-width: 70%;
+        padding: 10px 14px;
+        border-radius: 18px;
+        font-size: 14px;
+        line-height: 1.4;
+        position: relative;
+        word-wrap: break-word;
+    }
+
+    .msg-in {
+        align-self: flex-start;
+        background-color: #2a2a2a;
+        color: #e0e0e0;
+        border-bottom-left-radius: 4px;
+    }
+
+    .msg-out {
+        align-self: flex-end;
+        background-color: var(--accent);
+        color: #000;
+        border-bottom-right-radius: 4px;
+    }
+
+    .msg-meta {
+        font-size: 10px;
+        margin-bottom: 4px;
+        opacity: 0.7;
+        display: block;
+    }
+
+    .chat-input-bar {
+        display: flex;
+        gap: 12px;
+        background: #000;
+        padding: 10px;
+        border-radius: 50px;
+        border: 1px solid #333;
+    }
+
+    .chat-input-field {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: white;
+        padding: 8px 12px;
+        outline: none;
+        font-size: 14px;
+    }
+
+    .chat-send-btn {
+        background: var(--accent);
+        color: black;
+        border: none;
+        border-radius: 50%;
+        width: 44px;
+        height: 44px;
+        cursor: pointer;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.1s;
+    }
+    
+    .chat-send-btn:active { transform: scale(0.9); }
 </style>
 
 <div id="fog-overlay">
@@ -837,6 +989,9 @@
             style="display: none;">
             <span>＋</span> Create Playlist
         </button>
+        <button class="nav-btn" id="btn-chat" onclick="loadChatRooms()">
+            Chat Rooms
+        </button>
         <div class="acquisition-panel">
             <div class="input-container" id="input-box">
                 <input type="text" 
@@ -893,6 +1048,38 @@
 
             <div id="list-container" class="list-view"></div>
         </div>
+
+        <div id="chat-section" style="display: none;">
+            <div id="chat-lobby">
+                <div class="chat-lobby-header">
+                    <h2>Public Frequencies</h2>
+                    <button onclick="document.getElementById('new-room-name').value=''; openModal('create-room-modal')" 
+                        style="background:var(--accent); color:black; border:none; padding:10px 20px; border-radius:500px; font-weight:700; cursor:pointer; font-size:13px;">
+                        + Create Frequency
+                    </button>
+                </div>
+                <div class="grid-container" id="chat-rooms-grid">
+                </div>
+            </div>
+            <div id="active-chat-room" style="display: none;">
+                <div class="chat-interface">
+                    <div class="chat-header-bar">
+                        <button onclick="leaveRoom()" style="background:none; border:none; color:var(--text-muted); font-size: 24px; cursor:pointer;">←</button>
+                        <div>
+                            <div id="current-room-name" style="font-size: 18px; font-weight: 700; color: var(--accent);">Room Name</div>
+                            <div id="active-room-stats" style="font-size: 11px; color: #4caf50;">Connecting...</div>
+                            <div id="connection-status" style="font-size: 11px; color: #4caf50;">● Connected via XMPP</div>
+                        </div>
+                    </div>
+                    <div id="chat-messages" class="chat-messages-area">
+                    </div>
+                    <div class="chat-input-bar">
+                        <input type="text" id="chat-msg-input" class="chat-input-field" placeholder="Broadcast message..." onkeypress="handleChatEnter(event)" autocomplete="off">
+                        <button class="chat-send-btn" onclick="sendChatMessage()">➤</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="player-footer">
@@ -945,6 +1132,22 @@
             </div>
         </div>
     </div>
+    <div id="create-room-modal" class="modal-overlay" style="z-index:1002">
+        <div class="modal-box">
+            <h2>New Frequency</h2>
+            <p style="color:#888; font-size:13px; margin-bottom:20px;">Create a public channel.</p>
+            
+            <div class="input-group">
+                <label>Frequency Name</label>
+                <input type="text" id="new-room-name" placeholder="e.g., Synthwave Lounge">
+            </div>
+
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button class="btn-secondary" onclick="document.getElementById('create-room-modal').style.display='none'">Cancel</button>
+                <button class="btn-primary" onclick="createChatRoom()">Create</button>
+            </div>
+        </div>
+    </div>
 
     <div id="add-track-modal" class="modal-overlay" style="z-index:1002">
         <div class="modal-box">
@@ -976,7 +1179,230 @@
         let currentQueue = [];
         let currentTrackIndex = -1;
         let trackPendingAdd = null;
+        let chatSocket = null;
+        let currentRoom = null;
+        let myUsername = "User_" + Math.floor(Math.random() * 1000);
 
+        function createChatRoom() {
+            const input = document.getElementById('new-room-name');
+            const name = input.value.trim().replace(/\s+/g, '_'); 
+            
+            if(!name) return;
+            
+            closeModal('create-room-modal');
+            joinRoom(name);
+            
+            input.value = '';
+        }
+
+        function joinRoom(name) {
+            currentRoom = name;
+            
+            document.getElementById('chat-lobby').style.display = 'none';
+            document.getElementById('active-chat-room').style.display = 'block';
+            document.getElementById('current-room-name').innerText = "# " + name;
+            document.getElementById('chat-messages').innerHTML = '';
+            
+            addSystemMessage(`Joining frequency ${name}...`);
+            
+            if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) {
+                connectXMPP();
+            } else {
+                chatSocket.send(`<presence to='${name}' from='${myUsername}'/>`);
+            }
+        }
+
+        function leaveRoom() {
+            currentRoom = null;
+            
+            if(chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+                chatSocket.send(`<presence from='${myUsername}'/>`);
+            }
+
+            document.getElementById('active-chat-room').style.display = 'none';
+            document.getElementById('chat-lobby').style.display = 'block';
+            
+            loadChatRooms();
+        }
+
+        function connectXMPP() {
+            const status = document.getElementById('connection-status');
+            status.style.color = 'orange';
+            status.innerText = "● Connecting...";
+
+            const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            const host = window.location.host; 
+            
+            const url = `${protocol}://${host}/chat/`;
+            
+            try {
+                chatSocket = new WebSocket(url, "xmpp");
+
+                chatSocket.onopen = function() {
+                    status.style.color = '#4caf50';
+                    status.innerText = "● Signal Established";
+                    addSystemMessage("Connected to Caligo Network.");
+                    
+                    const startStream = "<stream:stream to='radio' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' version='1.0'>";
+                    chatSocket.send(startStream);
+                    
+                    const presence = `<presence to='${currentRoom}' from='${myUsername}'/>`;
+                    chatSocket.send(presence);
+                };
+
+                chatSocket.onmessage = function(event) {
+                    const msg = event.data;
+
+                    if (msg.includes("<roomlist>")) {
+                        const match = msg.match(/<roomlist>[\s\S]*?<\/roomlist>/);
+                        
+                        if (match) {
+                            const parser = new DOMParser();
+                            const doc = parser.parseFromString(match[0], "text/xml");
+                            const rooms = doc.getElementsByTagName("room");
+
+                            for(let i=0; i<rooms.length; i++) {
+                                const rName = rooms[i].getAttribute("name");
+                                const rCount = rooms[i].getAttribute("count");
+                                
+                                const el = document.getElementById(`count-${rName}`);
+                                if(el) {
+                                    el.innerText = `${rCount} online`;
+                                    el.style.color = (rCount > 0) ? "#4caf50" : "#666";
+                                }
+                                
+                                if (currentRoom && rName === currentRoom) {
+                                    const statusEl = document.getElementById('active-room-stats');
+                                    if (statusEl) statusEl.innerText = `● ${rCount} Online`;
+                                }
+                            }
+                        }
+
+                        return;
+                    }
+                    
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(msg, "text/xml");
+                    const message = xmlDoc.getElementsByTagName("message")[0];
+                    
+                    if (message) {
+                        const body = message.getElementsByTagName("body")[0];
+                        const from = message.getAttribute("from");
+
+                        if (body) {
+                            let content = body.textContent;
+                            let senderName = from;
+
+                            if (senderName.includes("/")) {
+                                senderName = senderName.split("/")[1] || senderName.split("/")[0];
+                            }
+                            
+                            if (senderName === myUsername) return; 
+
+                            addMessageBubble(senderName, content, false);
+                        }
+                    }
+                };
+
+                chatSocket.onclose = function() {
+                    status.style.color = '#cf6679';
+                    status.innerText = "● Signal Lost";
+                };
+
+            } catch(e) {
+                console.error(e);
+                status.innerText = "Connection Failed";
+            }
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chat-msg-input');
+            const msg = input.value.trim();
+            if (!msg || !chatSocket) return;
+
+            const stanza = `<message type='chat' to='${currentRoom}' from='${myUsername}'><body>${msg}</body></message>`;
+            chatSocket.send(stanza);
+            
+            addMessageBubble("Me", msg, true);
+            input.value = "";
+        }
+
+        function handleChatEnter(e) {
+            if (e.key === 'Enter') sendChatMessage();
+        }
+
+        function addMessageBubble(sender, text, isMe) {
+            const box = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = isMe ? "message-bubble msg-out" : "message-bubble msg-in";
+            
+            const meta = `<span class="msg-meta">${sender}</span>`;
+            div.innerHTML = (isMe ? "" : meta) + text;
+            
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function addSystemMessage(text) {
+            const box = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.style.textAlign = 'center';
+            div.style.fontSize = '11px';
+            div.style.color = '#666';
+            div.style.margin = '8px 0';
+            div.innerText = text;
+            box.appendChild(div);
+        }
+
+        async function loadChatRooms() {
+            loadView('chat'); 
+            
+            const grid = document.getElementById('chat-rooms-grid');
+            grid.innerHTML = '<div style="color:#666">Loading frequencies...</div>';
+
+            try {
+                const response = await fetch('/cgi_bin/get_chat_rooms');
+                if (!response.ok) throw new Error("Signal lost");
+
+                const rooms = await response.json();
+                grid.innerHTML = ''; 
+
+                if (rooms.length === 0) {
+                    grid.innerHTML = '<p style="color:#666">No active frequencies. Create one above.</p>';
+                    return;
+                }
+
+                rooms.forEach(room => {
+                    const card = document.createElement('div');
+                    card.className = 'chat-room-card';
+                    card.innerHTML = `
+                        <div class="chat-room-title">#${room.name}</div>
+                        <div class="chat-room-users" id="count-${room.name}">
+                            Waiting for signal... 
+                        </div>
+                    `;
+                    card.onclick = () => joinRoom(room.name);
+                    grid.appendChild(card);
+                });
+
+                if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) {
+                    connectXMPP();
+                } else {
+                    chatSocket.send(`<presence from='${myUsername}'/>`);
+                }
+
+            } catch (error) {
+                console.error("Failed to load rooms:", error);
+                grid.innerHTML = '<div style="color:var(--error)">Failed to retrieve frequencies.</div>';
+            }
+        }
+
+        function closeModal(id) {
+            const modal = document.getElementById(id);
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
         document.addEventListener('DOMContentLoaded', () => {
             updateUIState();
             loadView('mixtape');
@@ -1229,12 +1655,19 @@
             const title = document.getElementById('page-title');
             const grid = document.getElementById('grid-container');
             const list = document.getElementById('list-container');
+            const chatSection = document.getElementById('chat-section');
             const backBtn = document.getElementById('back-btn');
             const searchContainer = document.querySelector('.search-container');
+            const player = document.getElementById('audio-player');
 
-            grid.style.display = 'grid';
+            grid.style.display = 'none';
             list.style.display = 'none';
+            chatSection.style.display = 'none';
             backBtn.style.display = 'none';
+            
+            if (player.classList.contains('radio-mode') && view !== 'radio') {
+                player.classList.remove('radio-mode');
+            }
 
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
             document.querySelector('.sidebar').classList.remove('active');
@@ -1245,13 +1678,18 @@
 
                 searchContainer.style.visibility = 'visible';
                 searchContainer.style.opacity = '1';
+                grid.style.display = 'grid'; 
 
-                grid.innerHTML = '<p style="color:#666; padding:20px;">Loading...</p>';
-
-                const res = await apiCall(API_MIX, {});
-                allAlbums = res.albums || [];
-                populateFilters();
-                renderAlbums(allAlbums);
+                if (allAlbums.length === 0) {
+                     grid.innerHTML = '<p style="color:#666; padding:20px;">Loading...</p>';
+                     
+                     const res = await apiCall(API_MIX, {});
+                     allAlbums = res.albums || [];
+                     populateFilters();
+                     renderAlbums(allAlbums);
+                } else {
+                     renderAlbums(allAlbums);
+                }
             }
             else if (view === 'radio') {
                 title.textContent = "Radio";
@@ -1259,10 +1697,12 @@
 
                 searchContainer.style.visibility = 'hidden';
                 searchContainer.style.opacity = '0';
+                
+                grid.style.display = 'grid';
 
                 document.getElementById('np-title').textContent = "";
                 document.getElementById('np-album').textContent = "";
-
+                
                 const player = document.getElementById('audio-player');
                 player.classList.add('radio-mode');
                 player.src = '/radio/';
@@ -1272,7 +1712,7 @@
                         <h2 style="color:white; font-weight:600; margin-bottom:12px;">Tuning In...</h2>
                         <p style="color:#666; font-size:14px;">Establishing connection to the stream.</p>
                     </div>`;
-
+                
                 player.onplaying = () => {
                     const card = document.getElementById('radio-card');
                     if (card) {
@@ -1290,6 +1730,20 @@
                         <p style="color:#666; font-size:14px;">Press play to start the stream.</p>
                      `;
                 });
+            }
+            else if (view === 'chat') {
+                title.textContent = "Chat Rooms";
+                document.getElementById('btn-chat').classList.add('active');
+
+                searchContainer.style.visibility = 'hidden';
+                searchContainer.style.opacity = '0';
+
+                chatSection.style.display = 'block';
+                
+                if(!currentRoom) {
+                    document.getElementById('chat-lobby').style.display = 'block';
+                    document.getElementById('active-chat-room').style.display = 'none';
+                }
             }
         }
 
