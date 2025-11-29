@@ -719,7 +719,45 @@
             color: #888;
             animation: flash 2s infinite;
         }
+
+        .album-actions {
+            padding: 0 0 24px 16px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .track-actions {
+            margin-left: auto;
+            padding-left: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .download-btn {
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            opacity: 0;
+            transition: all 0.2s;
+            padding: 8px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .track-row:hover .download-btn {
+            opacity: 1;
+        }
+
+        .download-btn:hover {
+            color: var(--accent);
+            background: rgba(255,255,255,0.1);
+        }
         </style>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 
 <body>
@@ -1169,11 +1207,13 @@
         const API_MIX = '/cgi_bin/mixtape_app';
         const API_PLAYLIST = '/cgi_bin/playlist_manager';
 
+        let currentView = 'mixtape';    
+        let xmppReconnectTimer = null;
         let currentUser = localStorage.getItem('caligo_user');
         let currentPass = localStorage.getItem('caligo_pass');
         let isRegisterMode = false;
-        let allAlbums = [];
-
+        let publicAlbums = [];
+        let myPlaylists = [];
         let currentAlbumName = "";
 
         let currentQueue = [];
@@ -1718,6 +1758,15 @@
             }
         }
 
+        function disconnectXMPP() {
+            if (chatSocket) {
+                chatSocket.onclose = null; 
+                chatSocket.close();
+                chatSocket = null;
+                console.log("[XMPP] Disconnected (Navigation)");
+            }
+        }
+
         async function loadView(view) {
             const title = document.getElementById('page-title');
             const grid = document.getElementById('grid-container');
@@ -1726,15 +1775,15 @@
             const backBtn = document.getElementById('back-btn');
             const searchContainer = document.querySelector('.search-container');
             const player = document.getElementById('audio-player');
+            
+            if (view !== 'chat') {
+                disconnectXMPP();
+            }
 
             grid.style.display = 'none';
             list.style.display = 'none';
             chatSection.style.display = 'none';
             backBtn.style.display = 'none';
-            
-            if (player.classList.contains('radio-mode') && view !== 'radio') {
-                player.classList.remove('radio-mode');
-            }
 
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
             document.querySelector('.sidebar').classList.remove('active');
@@ -1742,21 +1791,21 @@
             if (view === 'mixtape') {
                 title.textContent = "Thesaurarium";
                 document.querySelector('.nav-btn[onclick="loadView(\'mixtape\')"]').classList.add('active');
-
+                
                 searchContainer.style.visibility = 'visible';
                 searchContainer.style.opacity = '1';
-                grid.style.display = 'grid'; 
+                grid.style.display = 'grid';
 
-                if (allAlbums.length === 0) {
-                     grid.innerHTML = '<p style="color:#666; padding:20px;">Loading...</p>';
-                     
-                     const res = await apiCall(API_MIX, {});
-                     allAlbums = res.albums || [];
-                     populateFilters();
-                     renderAlbums(allAlbums);
-                } else {
-                     renderAlbums(allAlbums);
+                if (publicAlbums.length === 0) {
+                    grid.innerHTML = '<p style="color:#666; padding:20px;">Loading...</p>';
+
+                    const res = await apiCall(API_MIX, {});
+                    publicAlbums = res.albums || [];
+
+                    if(typeof populateFilters === 'function') populateFilters();
                 }
+                
+                applyFilters();
             }
             else if (view === 'radio') {
                 title.textContent = "Radio";
@@ -1770,16 +1819,34 @@
                 document.getElementById('np-title').textContent = "";
                 document.getElementById('np-album').textContent = "";
                 
-                const player = document.getElementById('audio-player');
-                player.classList.add('radio-mode');
-                player.src = '/radio/';
+                const isAlreadyPlayingRadio = player.src && player.src.includes('/radio/');
 
-                grid.innerHTML = `
-                    <div id="radio-card" style="grid-column: 1/-1; background: #161616; padding: 80px; border-radius: 8px; text-align: center; border: 1px solid #333;">
-                        <h2 style="color:white; font-weight:600; margin-bottom:12px;">Tuning In...</h2>
-                        <p style="color:#666; font-size:14px;">Establishing connection to the stream.</p>
-                    </div>`;
-                
+                if (!isAlreadyPlayingRadio) {
+                    player.classList.add('radio-mode');
+                    player.src = '/radio/';
+
+                    grid.innerHTML = `
+                        <div id="radio-card" style="grid-column: 1/-1; background: #161616; padding: 80px; border-radius: 8px; text-align: center; border: 1px solid #333;">
+                            <h2 style="color:white; font-weight:600; margin-bottom:12px;">Tuning In...</h2>
+                            <p style="color:#666; font-size:14px;">Establishing connection to the stream.</p>
+                        </div>`;
+                    
+                    player.play().catch(e => {
+                        const card = document.getElementById('radio-card');
+                        if (card) card.innerHTML = `
+                            <h2 style="color:white; font-weight:600; margin-bottom:12px;">Ready</h2>
+                            <p style="color:#666; font-size:14px;">Press play to start the stream.</p>
+                        `;
+                    });
+                }
+                else {
+                    grid.innerHTML = `
+                        <div id="radio-card" style="grid-column: 1/-1; background: #161616; padding: 80px; border-radius: 8px; text-align: center; border: 1px solid #333;">
+                            <h2 style="color:white; font-weight:600; margin-bottom:12px;">Live Feed</h2>
+                            <p style="color:#888; font-size:14px;">You are listening to the broadcast.</p>
+                        </div>`;
+                }
+
                 player.onplaying = () => {
                     const card = document.getElementById('radio-card');
                     if (card) {
@@ -1789,14 +1856,6 @@
                         `;
                     }
                 };
-
-                player.play().catch(e => {
-                    const card = document.getElementById('radio-card');
-                    if (card) card.innerHTML = `
-                        <h2 style="color:white; font-weight:600; margin-bottom:12px;">Ready</h2>
-                        <p style="color:#666; font-size:14px;">Press play to start the stream.</p>
-                     `;
-                });
             }
             else if (view === 'chat') {
                 title.textContent = "Chat Rooms";
@@ -1811,9 +1870,11 @@
                     document.getElementById('chat-lobby').style.display = 'block';
                     document.getElementById('active-chat-room').style.display = 'none';
                 }
+
+                //connectXMPP();
             }
         }
-
+        
         async function loadPlaylists() {
             if (!currentUser) return;
             const searchContainer = document.querySelector('.search-container');
@@ -1831,12 +1892,12 @@
             const res = await apiCall(API_PLAYLIST, { action: 'get_playlists', username: currentUser });
             const playlists = res.playlists || {};
 
-            allAlbums = Object.keys(playlists).map(k => ({
-                name: k,
-                artist: playlists[k].length + ' tracks',
-                cover: 'https://placehold.co/300x300/111/333?text=PL',
-                tracks: playlists[k],
-                isPlaylist: true
+            myPlaylists = Object.keys(playlists).map(k => ({ 
+                name: k, 
+                artist: playlists[k].length + ' tracks', 
+                cover: 'https://placehold.co/300x300/111/333?text=PL', 
+                tracks: playlists[k], 
+                isPlaylist: true 
             }));
 
             backToGrid();
@@ -1895,25 +1956,53 @@
                 return;
             }
 
+            const controls = document.createElement('div');
+            controls.className = 'album-actions'; 
+            const safeName = album.name.replace(/'/g, "\\'");
+            controls.innerHTML = `
+                <button class="btn-primary" onclick="playTrack(0)">▶ Play All</button>
+                <button class="btn-secondary" onclick="downloadAlbum('${safeName}')">↓ Download All</button>
+            `;
+            list.appendChild(controls);
+
             currentQueue = album.tracks;
 
             album.tracks.forEach((t, idx) => {
                 const row = document.createElement('div');
                 row.className = 'track-row';
+                
+                const safeTitle = t.title.replace(/'/g, "\\'");
+                const safeUrl = t.audio_url.replace(/'/g, "\\'");
+
                 row.innerHTML = `
-                    <div style="display:flex; align-items:center; gap:16px;">
+                    <div style="display:flex; align-items:center; gap:16px; flex-grow:1;">
                         <span style="color:#444; width:20px; font-size:12px;">${idx + 1}</span>
                         <span style="font-weight:500">${t.title}</span>
                     </div>
-                    <div>
-                        ${currentUser && !album.isPlaylist ? `<button class="btn-secondary" style="padding:4px 10px; font-size:10px;" onclick="initAddToPlaylist(event, ${idx})">＋</button>` : ''}
+                    
+                    <div class="track-actions">
+                        ${currentUser && !album.isPlaylist ? 
+                            `<button class="btn-secondary" style="padding:4px 10px; font-size:10px;" onclick="initAddToPlaylist(event, ${idx})">＋</button>` 
+                            : ''}
+                        
+                        <button class="download-btn" 
+                            onclick="event.stopPropagation(); downloadTrack('${safeUrl}', '${safeTitle}.mp3')"
+                            title="Download Track">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                        </button>
                     </div>
                 `;
+
                 row.addEventListener('click', (e) => {
-                    if (e.target.tagName !== 'BUTTON') {
+                    if (!e.target.closest('button')) {
                         playTrack(idx);
                     }
                 });
+                
                 list.appendChild(row);
             });
         }
@@ -2005,25 +2094,103 @@
 
         function populateFilters() {
             const select = document.getElementById('artist-filter');
-            const artists = new Set(allAlbums.map(a => a.artist).filter(x => x && x !== 'Unknown'));
+            if (!select) return;
+            const source = publicAlbums || [];
+            const artists = new Set(source.map(a => a.artist).filter(x => x && x !== 'Unknown'));    
             select.innerHTML = '<option value="">All Artists</option>';
             artists.forEach(a => {
                 select.innerHTML += `<option value="${a}">${a}</option>`;
             });
         }
 
+        function downloadTrack(url, filename) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename; 
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        async function downloadAlbum(albumName) {
+            const isPlaylistView = document.getElementById('btn-my-playlists').classList.contains('active');
+
+            const sourceData = isPlaylistView ? (myPlaylists || []) : (publicAlbums || []);
+
+            const album = sourceData.find(a => a.name === albumName);
+
+            if (!album) {
+                showToast("Error: Could not find album in the current view.");
+                return;
+            }
+
+            showToast("Compressing audio data... Please wait.");
+
+            const zip = new JSZip();
+            const folder = zip.folder(album.name); 
+
+            const fetchBlob = async (url) => {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Failed to load ${url}`);
+                return await response.blob();
+            };
+
+            const promises = album.tracks.map(async (t, i) => {
+                try {
+                    const blob = await fetchBlob(t.audio_url);
+                    
+                    const num = (i + 1).toString().padStart(2, '0');
+                    const safeTitle = t.title.replace(/[\/\\?%*:|"<>]/g, '-'); 
+                    const filename = `${num} - ${safeTitle}.mp3`;
+                    
+                    folder.file(filename, blob);
+                } catch (e) {
+                    console.error("Error zipping track:", t.title, e);
+                }
+            });
+
+            await Promise.all(promises);
+
+            showToast("Finalizing archive...");
+
+            const content = await zip.generateAsync({ type: "blob" });
+
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(content);
+            a.download = `${album.name}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+            showToast("Download started.");
+        }
+
         function applyFilters() {
             const term = document.getElementById('search-bar').value.toLowerCase();
-            const artist = document.getElementById('artist-filter').value;
+            const artistFilter = document.getElementById('artist-filter');
+            const artist = artistFilter ? artistFilter.value : "";
 
-            const filtered = allAlbums.filter(a => {
-                const matchesTerm = (a.name && a.name.toLowerCase().includes(term));
-                const matchesArtist = !artist || a.artist === artist;
+            const isPlaylistView = document.getElementById('btn-my-playlists').classList.contains('active');
+            
+            const sourceData = isPlaylistView ? (myPlaylists || []) : (publicAlbums || []);
+
+            const filtered = sourceData.filter(a => {
+                const aName = a.name ? a.name.toLowerCase() : "";
+                const aArtist = a.artist ? a.artist : "";
+
+                const matchesTerm = aName.includes(term);
+               
+                const matchesArtist = !artist || aArtist === artist;
+                
                 return matchesTerm && matchesArtist;
             });
 
             const grid = document.getElementById('grid-container');
-            if (grid.style.display === 'none') backToGrid();
+            
+            if (grid.style.display === 'none' && typeof backToGrid === 'function') {
+                backToGrid();
+            }
 
             renderAlbums(filtered);
         }
