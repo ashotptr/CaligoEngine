@@ -1208,7 +1208,7 @@
             if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) {
                 connectXMPP();
             } else {
-                chatSocket.send(`<presence to='${name}' from='${myUsername}'/>`);
+                chatSocket.send(`<presence to='${name}@conference.radio/${myUsername}'/>`);
             }
         }
 
@@ -1216,7 +1216,7 @@
             currentRoom = null;
             
             if(chatSocket && chatSocket.readyState === WebSocket.OPEN) {
-                chatSocket.send(`<presence from='${myUsername}'/>`);
+                chatSocket.send(`<presence to='lobby@conference.radio/${myUsername}'/>`);
             }
 
             document.getElementById('active-chat-room').style.display = 'none';
@@ -1225,34 +1225,89 @@
             loadChatRooms();
         }
 
+        let xmppState = 'DISCONNECTED'; 
+
         function connectXMPP() {
-            const status = document.getElementById('connection-status');
-            status.style.color = 'orange';
-            status.innerText = "● Connecting...";
+            const status = document.getElementById('connection-status') || document.getElementById('chat-status');
+            if (chatSocket && (chatSocket.readyState === WebSocket.OPEN || chatSocket.readyState === WebSocket.CONNECTING)) {
+                return;
+            }
+
+            if(status) {
+                status.style.color = 'orange';
+                status.innerText = "● Connecting...";
+            }
 
             const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
             const host = window.location.host; 
-            
             const url = `${protocol}://${host}/chat/`;
-            
+
             try {
                 chatSocket = new WebSocket(url, "xmpp");
 
                 chatSocket.onopen = function() {
-                    status.style.color = '#4caf50';
-                    status.innerText = "● Signal Established";
-                    addSystemMessage("Connected to Caligo Network.");
-                    
+                    if(status) {
+                        status.style.color = '#ffeb3b'; 
+                        status.innerText = "● Negotiating...";
+                    }
+                    console.log("[XMPP] Connected. Starting Stream...");
+
                     const startStream = "<stream:stream to='radio' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' version='1.0'>";
                     chatSocket.send(startStream);
-                    
-                    const presence = `<presence to='${currentRoom}' from='${myUsername}'/>`;
-                    chatSocket.send(presence);
+                    xmppState = 'WAIT_SASL';
                 };
 
                 chatSocket.onmessage = function(event) {
                     const msg = event.data;
 
+                    if (xmppState === 'WAIT_SASL' && msg.includes("mechanisms")) {
+                        console.log("[XMPP] Sending Auth...");
+                        const user = myUsername || "guest";
+                        const pass = "password"; 
+                        const raw = `\u0000${user}\u0000${pass}`;
+                        const token = btoa(raw);
+                        
+                        const authStanza = `<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism='PLAIN'>${token}</auth>`;
+                        chatSocket.send(authStanza);
+                        xmppState = 'WAIT_AUTH_RESULT';
+                        return;
+                    }
+
+                    if (xmppState === 'WAIT_AUTH_RESULT' && msg.includes("success")) {
+                        console.log("[XMPP] Auth Success! Restarting stream...");
+                        const restartStream = "<stream:stream to='radio' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' version='1.0'>";
+                        chatSocket.send(restartStream);
+                        xmppState = 'WAIT_BIND_OFFER';
+                        return;
+                    }
+
+                    if (xmppState === 'WAIT_BIND_OFFER' && msg.includes("bind")) {
+                        console.log("[XMPP] Binding Resource...");
+                        const bindStanza = "<iq type='set' id='bind_1'><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'><resource>web-client</resource></bind></iq>";
+                        chatSocket.send(bindStanza);
+                        xmppState = 'WAIT_BIND_RESULT';
+                        return;
+                    }
+
+                    if (xmppState === 'WAIT_BIND_RESULT' && msg.includes("jid")) {
+                        console.log("[XMPP] Bound! Joining Room...");
+                        xmppState = 'READY';
+
+                        chatSocket.send("<iq type='set' id='sess_1'><session xmlns='urn:ietf:params:xml:ns:xmpp-session'/></iq>");
+                        //wait for session to be established before sending presence
+                        const presence = `<presence to='${currentRoom}@conference.radio/${myUsername}'/>`;// looks fishy change to correct presence stanza
+                        chatSocket.send(presence);
+                        
+                        if(status) {
+                            status.style.color = '#4caf50';
+                            status.innerText = "● Signal Established";
+                        }
+                        addSystemMessage("Connected to Caligo Network.");
+                        return;
+                    }
+                    
+                    if (xmppState !== 'READY') return;
+                    
                     if (msg.includes("<roomlist>")) {
                         const match = msg.match(/<roomlist>[\s\S]*?<\/roomlist>/);
                         
@@ -1299,19 +1354,29 @@
                             
                             if (senderName === myUsername) return; 
 
-                            addMessageBubble(senderName, content, false);
+                            if (typeof addMessageBubble === 'function') {
+                                addMessageBubble(senderName, content, false);
+                            } else if (typeof addChatMessage === 'function') {
+                                addChatMessage(senderName, content, false);
+                            }
                         }
                     }
                 };
 
                 chatSocket.onclose = function() {
-                    status.style.color = '#cf6679';
-                    status.innerText = "● Signal Lost";
+                    console.log("XMPP Disconnected");
+                    xmppState = 'DISCONNECTED';
+                    if(status) {
+                        status.style.color = '#cf6679';
+                        status.innerText = "● Signal Lost";
+                    }
+                    
+                    setTimeout(connectXMPP, 3000); 
                 };
 
             } catch(e) {
                 console.error(e);
-                status.innerText = "Connection Failed";
+                if(status) status.innerText = "Connection Failed";
             }
         }
 
@@ -1320,7 +1385,7 @@
             const msg = input.value.trim();
             if (!msg || !chatSocket) return;
 
-            const stanza = `<message type='chat' to='${currentRoom}' from='${myUsername}'><body>${msg}</body></message>`;
+            const stanza = `<message type='groupchat' to='${currentRoom}@conference.radio' from='${myUsername}'><body>${msg}</body></message>`;            
             chatSocket.send(stanza);
             
             addMessageBubble("Me", msg, true);
@@ -1388,7 +1453,7 @@
                 if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) {
                     connectXMPP();
                 } else {
-                    chatSocket.send(`<presence from='${myUsername}'/>`);
+                    chatSocket.send(`<presence to='lobby@conference.radio/${myUsername}'/>`);
                 }
 
             } catch (error) {
@@ -1624,6 +1689,8 @@
             if (res.success) {
                 currentUser = u;
                 currentPass = p;
+                myUsername = u; 
+                
                 localStorage.setItem('caligo_user', u);
                 localStorage.setItem('caligo_pass', p);
 
@@ -1979,6 +2046,30 @@
                 }
             });
         }
+
+        const globalAudio = document.getElementById('audio-player');
+
+        globalAudio.addEventListener('error', (e) => {
+            const currentSrc = globalAudio.getAttribute('src');
+            
+            if (currentSrc && currentSrc.includes('/radio/')) {
+                console.warn("[Radio] Connection lost. Attempting to reconnect in 3s...");
+                
+                setTimeout(() => {
+                    globalAudio.src = '/radio/?t=' + Date.now();
+                    globalAudio.load();
+                    globalAudio.play().catch(err => console.error("Auto-play blocked:", err));
+                    
+                    const radioCard = document.getElementById('radio-card');
+                    if (radioCard) {
+                        radioCard.innerHTML = `
+                            <h2 style="color:white; font-weight:600; margin-bottom:12px;">Reconnecting...</h2>
+                            <p style="color:#e0e0e0; font-size:14px;">The stream was interrupted.</p>
+                        `;
+                    }
+                }, 3000);
+            }
+        });
     </script>
 </body>
 

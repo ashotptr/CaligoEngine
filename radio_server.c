@@ -307,6 +307,10 @@ int main(void) {
         int nfds = epoll_wait(epoll_fd, events, MAX_EPOLL_EVENTS, -1);
 
         if (nfds == -1) {
+            if (errno == EINTR) {
+                continue;
+            }
+            
             perror("radio_server: epoll_wait");
 
             break;
@@ -329,46 +333,78 @@ int main(void) {
                             break;
                         }
                     }
-
+                    
                     set_nonblock(client_fd);
                     
-                    char dump[1024];
-
-                    recv(client_fd, dump, sizeof(dump), 0); 
-
-                    const char* header = "HTTP/1.1 200 OK\r\n"
-                                         "Content-Type: audio/mpeg\r\n"
-                                         "Transfer-Encoding: chunked\r\n"
-                                         "Connection: keep-alive\r\n\r\n";
+                    struct epoll_event ev;
+                    ev.events = EPOLLIN | EPOLLET;
+                    ev.data.fd = client_fd;
                     
-                    send(client_fd, header, strlen(header), 0);
-
-                    SenderContext* target_thread = &g_senders[current_thread_idx];
-                    
-                    RadioClient* new_client = malloc(sizeof(RadioClient));
-                    
-                    if (new_client == NULL) {
-                        perror("radio_server: malloc");
+                    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &ev) == -1) {
+                        perror("epoll_ctl: add client");
 
                         close(client_fd);
-                        
-                        continue;
                     }
-
-                    new_client->fd = client_fd;
-                    new_client->read_index = g_write_index;
-
-                    pthread_mutex_lock(&target_thread->list_mutex);
-
-                    new_client->next = target_thread->client_list_head;
-                    target_thread->client_list_head = new_client;
-
-                    pthread_mutex_unlock(&target_thread->list_mutex);
-                    
-                    printf("[Radio Main] Assigned Listener (fd=%d) to Thread %d\n", client_fd, current_thread_idx);
-
-                    current_thread_idx = (current_thread_idx + 1) % NUM_SENDER_THREADS;
                 }
+            }
+            else {
+                int client_fd = events[i].data.fd;
+                char dump[1024];
+
+                ssize_t n = recv(client_fd, dump, sizeof(dump) - 1, 0);
+
+                if (n <= 0) {
+                     if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                         continue; 
+                     }
+                     
+                     close(client_fd);
+
+                     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
+
+                     continue;
+                }
+                
+                epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
+
+                const char* header = "HTTP/1.1 200 OK\r\n"
+                                     "Content-Type: audio/mpeg\r\n"
+                                     "Transfer-Encoding: chunked\r\n"
+                                     "Connection: keep-alive\r\n"
+                                     "Cache-Control: no-cache, no-store\r\n"
+                                     "Access-Control-Allow-Origin: *\r\n\r\n";
+                
+                if (send(client_fd, header, strlen(header), MSG_NOSIGNAL) < 0) {
+                    close(client_fd);
+
+                    continue;
+                }
+
+                SenderContext* target_thread = &g_senders[current_thread_idx];
+                
+                RadioClient* new_client = malloc(sizeof(RadioClient));
+                
+                if (new_client == NULL) {
+                    perror("radio_server: malloc");
+
+                    close(client_fd);
+
+                    continue;
+                }
+
+                new_client->fd = client_fd;
+                new_client->read_index = g_write_index;
+
+                pthread_mutex_lock(&target_thread->list_mutex);
+
+                new_client->next = target_thread->client_list_head;
+                target_thread->client_list_head = new_client;
+
+                pthread_mutex_unlock(&target_thread->list_mutex);
+                
+                printf("[Radio Main] Assigned Listener (fd=%d) to Thread %d\n", client_fd, current_thread_idx);
+
+                current_thread_idx = (current_thread_idx + 1) % NUM_SENDER_THREADS;
             }
         }
     }
