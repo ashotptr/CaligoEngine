@@ -1,0 +1,2643 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caligo</title>
+    <style>
+        :root {
+            --bg-dark: #0a0a0a;
+            --bg-panel: #161616;
+            --bg-hover: #222222;
+            --accent: #ffffff;
+            --text-main: #e0e0e0;
+            --text-muted: #808080;
+            --border: #333333;
+            --error: #cf6679;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            height: 100dvh;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .sidebar {
+            width: 240px;
+            height: calc(100dvh - 90px);
+            background-color: #000000;
+            display: flex;
+            flex-direction: column;
+            padding: 32px 16px;
+            flex-shrink: 0;
+            border-right: 1px solid #1a1a1a;
+        }
+
+        .brand {
+            color: var(--accent);
+            font-size: 20px;
+            font-weight: 700;
+            padding: 0 16px;
+            margin-bottom: 40px;
+            letter-spacing: -0.5px;
+            text-transform: uppercase;
+        }
+
+        .nav-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            text-align: left;
+            padding: 12px 16px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 14px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 4px;
+        }
+
+        .nav-btn:hover {
+            color: var(--text-main);
+            background-color: var(--bg-hover);
+        }
+
+        .nav-btn.active {
+            color: var(--bg-dark);
+            background-color: var(--accent);
+            font-weight: 600;
+        }
+
+        .nav-btn span {
+            font-size: 16px;
+            opacity: 0.8;
+        }
+
+        .main-view {
+            flex-grow: 1;
+            background: var(--bg-dark);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            height: calc(100dvh - 90px);
+        }
+
+        .top-bar {
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            background-color: rgba(10, 10, 10, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            z-index: 10;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .search-container {
+            display: flex;
+            align-items: center;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 500px;
+            padding: 4px;
+            transition: border-color 0.2s;
+        }
+
+        .search-container:focus-within {
+            border-color: #666;
+        }
+
+        .search-container input {
+            border: none;
+            padding: 8px 16px;
+            width: 280px;
+            background: transparent;
+            color: var(--text-main);
+            font-size: 14px;
+            outline: none;
+        }
+
+        .search-container select {
+            background: transparent;
+            color: var(--text-muted);
+            border: none;
+            font-size: 13px;
+            border-left: 1px solid #333;
+            padding-left: 10px;
+            margin-right: 10px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .auth-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn-primary {
+            background-color: var(--accent);
+            color: var(--bg-dark);
+            border: none;
+            padding: 10px 24px;
+            border-radius: 500px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: scale(1.02);
+        }
+
+        .btn-primary:disabled {
+            background-color: #444;
+            color: #888;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-main);
+            border: 1px solid #444;
+            padding: 9px 20px;
+            border-radius: 500px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent);
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .user-display {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .logout-icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-muted);
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+
+        .logout-icon:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--accent);
+        }
+
+        .content-area {
+            padding: 20px 40px 120px 40px;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            letter-spacing: -0.02em;
+            color: var(--accent);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 24px;
+        }
+
+        .card {
+            background-color: var(--bg-panel);
+            padding: 16px;
+            border-radius: 8px;
+            transition: background-color 0.3s ease;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .card:hover {
+            background-color: var(--bg-hover);
+            border-color: #333;
+        }
+
+        .card img {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            filter: grayscale(20%);
+            transition: filter 0.3s;
+        }
+
+        .card:hover img {
+            filter: grayscale(0%);
+        }
+
+        .card-title {
+            font-weight: 600;
+            font-size: 15px;
+            margin-bottom: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-main);
+        }
+
+        .card-sub {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .list-view {
+            display: none;
+            flex-direction: column;
+        }
+
+        .track-row {
+            padding: 14px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s;
+            color: var(--text-muted);
+        }
+
+        .track-row:hover {
+            background-color: var(--bg-hover);
+            color: var(--text-main);
+        }
+
+        .track-row.active {
+            background-color: var(--bg-hover);
+            color: var(--accent);
+            box-shadow: inset 4px 0 0 var(--accent);
+        }
+
+        .track-row.active span {
+            font-weight: 600;
+        }
+
+        .player-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #000;
+            border-top: 1px solid #222;
+            padding: 15px 32px;
+            display: grid;
+            grid-template-columns: 1fr 600px 1fr;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .player-info {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-width: 0;
+        }
+
+        #np-title {
+            color: var(--text-main);
+            font-weight: 600;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #np-album {
+            color: var(--text-muted);
+            font-size: 12px;
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        audio {
+            width: 100%;
+            height: 40px;
+            opacity: 1;
+        }
+
+        audio.radio-mode::-webkit-media-controls-current-time-display,
+        audio.radio-mode::-webkit-media-controls-time-remaining-display,
+        audio.radio-mode::-webkit-media-controls-timeline {
+            display: none;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-box {
+            background: #1a1a1a;
+            padding: 40px;
+            border-radius: 12px;
+            width: 340px;
+            box-shadow: 0 24px 48px rgba(0, 0, 0, 0.8);
+            text-align: center;
+            border: 1px solid #333;
+        }
+
+        .modal-box h2 {
+            margin-top: 0;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .input-group {
+            margin-bottom: 24px;
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+        }
+
+        .input-group input,
+        .input-group select {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            background: #0a0a0a;
+            color: white;
+            box-sizing: border-box;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .input-group input:focus {
+            border-color: #666;
+            outline: none;
+        }
+
+        .auth-error {
+            color: var(--error);
+            font-size: 13px;
+            margin-bottom: 20px;
+            min-height: 18px;
+        }
+
+        .switch-mode {
+            margin-top: 24px;
+            font-size: 13px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .switch-mode:hover {
+            color: var(--accent);
+            text-decoration: underline;
+        }
+
+        .playlist-select-list {
+            max-height: 200px;
+            overflow-y: auto;
+            text-align: left;
+            margin-bottom: 20px;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 6px;
+        }
+
+        .playlist-option {
+            padding: 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #222;
+            color: var(--text-muted);
+        }
+
+        .playlist-option:hover {
+            background: #222;
+            color: var(--accent);
+        }
+
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: var(--accent);
+            color: var(--bg-dark);
+            text-align: center;
+            border-radius: 6px;
+            padding: 14px 20px;
+            position: fixed;
+            z-index: 2000;
+            right: 30px;
+            bottom: 100px;
+            font-weight: 600;
+            font-size: 14px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateY(20px);
+        }
+
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+            bottom: 110px;
+            transform: translateY(0);
+        }
+
+        #btn-suggest-pass {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            display: none;
+            transition: color 0.2s;
+        }
+
+        #btn-suggest-pass:hover {
+            color: var(--accent);
+        }
+
+        @media (max-width: 768px) {
+            body {
+                display: block;
+                position: relative;
+                height: auto !important;
+                overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .sidebar {
+                position: fixed !important;
+                left: -100%;
+                top: 0;
+                height: calc(100dvh - 90px);
+                width: 80%;
+                z-index: 1000;
+                transition: left 0.3s ease;
+                box-shadow: 5px 0 15px rgba(0, 0, 0, 0.5);
+                overflow-y: auto;
+                padding-bottom: 120px;
+            }
+
+            .sidebar.active {
+                left: 0;
+            }
+
+            .main-content {
+                width: 100%;
+                padding: 15px;
+                height: auto !important;
+                overflow: visible !important;
+                padding-bottom: 120px;
+            }
+
+            .top-bar {
+                gap: 15px;
+                position: sticky;
+                top: 0;
+                background-color: var(--bg-dark);
+                z-index: 900;
+                padding: 10px 0;
+            }
+
+            #mobile-menu-btn {
+                display: block !important;
+                background: transparent;
+                border: none;
+                color: var(--accent);
+                font-size: 24px;
+                cursor: pointer;
+                padding: 5px 10px;
+            }
+
+            #grid-container {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                gap: 15px;
+            }
+
+            .album-card img {
+                height: 140px;
+            }
+
+            .player-footer {
+                display: flex;
+                flex-direction: column;
+                height: auto;
+                padding: 10px;
+                gap: 10px;
+            }
+            
+            .player-footer > div:last-child { 
+                display: none;
+            }
+            
+            .chat-interface {
+                height: calc(100vh - 140px);
+                padding-bottom: 90px;
+            }
+            .chat-input-bar {
+                position: relative;
+                z-index: 5;
+            }
+
+            .volume-control {
+                display: none;
+            }
+
+            .track-info {
+                max-width: 40%;
+            }
+
+            .track-info h4,
+            .track-info p {
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .player-controls {
+                gap: 20px;
+            }
+
+            .player-controls button {
+                font-size: 20px;
+                padding: 10px;
+            }
+
+            .modal-content {
+                width: 90%;
+                max-height: 80vh;
+                overflow-y: auto;
+            }
+
+            .filter-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .filter-bar select,
+            .filter-bar button {
+                width: 100%;
+                margin-top: 10px;
+            }
+        }
+
+        .acquisition-panel {
+            margin: 10px 0 20px 0;
+            padding: 15px;
+            background: #111;
+            border-radius: 8px;
+            border: 1px solid #222;
+            display: none; 
+        }
+
+        .acquisition-panel.visible {
+            display: block;
+        }
+
+        .input-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            background: #0f0f0f;
+            border: 1px solid #333;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .input-container:focus-within {
+            border-color: #666;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.05);
+            background: #141414;
+        }
+
+        .caligo-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: #e0e0e0;
+            padding: 12px 12px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+            outline: none;
+        }
+
+        .caligo-input::placeholder {
+            color: #555;
+            font-style: italic;
+            font-size: 0.8rem;
+        }
+
+        .acquire-btn {
+            background: transparent;
+            border: none;
+            color: #666;
+            padding: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s ease;
+            border-left: 1px solid transparent;
+        }
+
+        .acquire-btn:hover {
+            color: #fff;
+        }
+
+        .input-container:focus-within .acquire-btn {
+            border-left: 1px solid #222;
+            color: #aaa;
+        }
+
+        .status-line {
+            margin-top: 6px;
+            font-size: 0.65rem;
+            color: #555;
+            font-family: 'Courier New', monospace;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .spinner {
+            animation: spin 1s linear infinite;
+            opacity: 0.8;
+        }
+
+        @keyframes spin {
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes flash {
+            0% { color: #444; }
+            50% { color: #fff; }
+            100% { color: #444; }
+        }
+
+        .processing-text {
+            color: #888;
+            animation: flash 2s infinite;
+        }
+
+        .album-actions {
+            padding: 0 0 24px 16px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .track-actions {
+            margin-left: auto;
+            padding-left: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .download-btn {
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            opacity: 0;
+            transition: all 0.2s;
+            padding: 8px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .track-row:hover .download-btn {
+            opacity: 1;
+        }
+
+        .download-btn:hover {
+            color: var(--accent);
+            background: rgba(255,255,255,0.1);
+        }
+
+        .btn-live-control {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 24px;
+            padding: 0 10px;
+            margin-left: 10px;
+            
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            
+            background-color: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            border-radius: 3px;
+            
+            cursor: pointer;
+            transition: all 0.15s ease-out;
+            user-select: none;
+        }
+
+        .btn-live-control:hover:not(:disabled) {
+            border-color: var(--text-muted);
+            color: var(--text-main);
+            background-color: rgba(255, 255, 255, 0.03);
+        }
+
+        .btn-live-control.loading {
+            color: var(--text-main);
+            cursor: auto;
+            animation: pulse-opacity 1.5s infinite;
+            border-color: var(--border);
+        }
+
+        .btn-live-control.live {
+            border-color: rgba(76, 175, 80, 0.5);
+            color: #4caf50;
+            background-color: rgba(76, 175, 80, 0.08);
+        }
+
+        .btn-live-control.error {
+            border-color: var(--error);
+            color: var(--error);
+        }
+
+        .live-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: currentColor;
+            margin-right: 6px;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+
+        .btn-live-control.live .live-dot {
+            opacity: 1;
+            box-shadow: 0 0 6px currentColor;
+        }
+
+        .btn-live-control.loading .live-dot {
+            display: none;
+        }
+        .btn-live-control.waiting {
+            border-color: rgba(255, 152, 0, 0.5);
+            color: #ff9800;
+            background-color: rgba(255, 152, 0, 0.08);
+            cursor: default;
+        }
+
+        .btn-live-control.waiting .live-dot {
+            opacity: 1;
+            box-shadow: 0 0 6px #ff9800;
+            animation: pulse-opacity 2s infinite;
+        }
+        @keyframes pulse-opacity {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        </style>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+
+<body>
+    <style>
+    #fog-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #050505;
+        background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 2s ease-in-out;
+        overflow: hidden;
+    }
+
+    #fog-overlay::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 300%;
+        height: 100%;
+        background: url('https://raw.githubusercontent.com/danielstuart14/CSS_FOG_ANIMATION/master/fog1.png') repeat-x;
+        background-size: contain;
+        animation: fog-drift 120s linear infinite;
+        opacity: 0.15;
+        filter: grayscale(100%) contrast(150%);
+        z-index: -1;
+    }
+
+    @keyframes fog-drift {
+        0% { transform: translate3d(0, 0, 0); }
+        100% { transform: translate3d(-50%, 0, 0); }
+    }
+
+    .caligo-gate-input {
+        background: transparent;
+        border: none;
+        border-bottom: 1px solid #333;
+        padding: 10px 10px;
+        color: #e0e0e0;
+        font-family: 'Courier New', monospace;
+        font-size: 1rem;
+        letter-spacing: 4px;
+        text-transform: uppercase;
+        outline: none;
+        width: 200px;
+        text-align: center;
+        transition: all 0.5s ease;
+    }
+
+    .caligo-gate-input::placeholder {
+        color: #444;
+        font-size: 0.8rem;
+        letter-spacing: 2px;
+        font-style: italic;
+    }
+
+    .caligo-gate-input:focus {
+        border-bottom: 1px solid #888;
+        width: 240px;
+    }
+
+    .hidden-gate {
+        opacity: 0;
+        pointer-events: none;
+    }
+    .chat-lobby-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+
+    .chat-room-card {
+        background-color: #111;
+        padding: 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.2s, transform 0.2s;
+        border: 1px solid transparent;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 120px;
+    }
+
+    .chat-room-card:hover {
+        background-color: #222;
+        border-color: #333;
+        transform: translateY(-2px);
+    }
+
+    .chat-room-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--accent);
+    }
+
+    .chat-room-users {
+        font-size: 12px;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .chat-interface {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 180px);
+    }
+
+    .chat-header-bar {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #333;
+        margin-bottom: 16px;
+    }
+
+    .chat-messages-area {
+        flex: 1;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding-right: 8px;
+        margin-bottom: 16px;
+    }
+
+    .chat-messages-area::-webkit-scrollbar { width: 6px; }
+    .chat-messages-area::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+    .message-bubble {
+        max-width: 70%;
+        padding: 10px 14px;
+        border-radius: 18px;
+        font-size: 14px;
+        line-height: 1.4;
+        position: relative;
+        word-wrap: break-word;
+    }
+
+    .msg-in {
+        align-self: flex-start;
+        background-color: #2a2a2a;
+        color: #e0e0e0;
+        border-bottom-left-radius: 4px;
+    }
+
+    .msg-out {
+        align-self: flex-end;
+        background-color: var(--accent);
+        color: #000;
+        border-bottom-right-radius: 4px;
+    }
+
+    .msg-meta {
+        font-size: 10px;
+        margin-bottom: 4px;
+        opacity: 0.7;
+        display: block;
+    }
+
+    .chat-input-bar {
+        display: flex;
+        gap: 12px;
+        background: #000;
+        padding: 10px;
+        border-radius: 50px;
+        border: 1px solid #333;
+    }
+
+    .chat-input-field {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: white;
+        padding: 8px 12px;
+        outline: none;
+        font-size: 14px;
+    }
+
+    .chat-send-btn {
+        background: var(--accent);
+        color: black;
+        border: none;
+        border-radius: 50%;
+        width: 44px;
+        height: 44px;
+        cursor: pointer;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.1s;
+    }
+    
+    .chat-send-btn:active { transform: scale(0.9); }
+</style>
+
+<div id="fog-overlay">
+    <input type="password" id="gate-input" class="caligo-gate-input" placeholder="ACCESS CODE" autocomplete="off">
+</div>
+
+<script>
+    (function() {
+        if (localStorage.getItem('caligo_unlocked')) {
+            document.getElementById('fog-overlay').style.display = 'none';
+            return;
+        }
+
+        const input = document.getElementById('gate-input');
+        const overlay = document.getElementById('fog-overlay');
+
+        input.addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') {
+                if (this.value.toLowerCase().trim() === 'caligo') {
+                    this.style.borderBottom = '1px solid #fff';
+                    this.style.color = '#fff';
+                    
+                    overlay.classList.add('hidden-gate');
+                    
+                    setTimeout(() => {
+                        overlay.style.display = 'none';
+                    }, 2000);
+
+                    localStorage.setItem('caligo_unlocked', 'true');
+                } else {
+                    const originalBorder = this.style.borderBottom;
+                    this.style.borderBottom = '1px solid #500';
+                    this.style.color = '#800';
+                    setTimeout(() => {
+                        this.style.borderBottom = '1px solid #333';
+                        this.style.color = '#e0e0e0';
+                        this.value = '';
+                    }, 500);
+                }
+            }
+        });
+        
+        input.focus();
+    })();
+</script>
+    <div class="sidebar">
+        <div class="brand">Caligo.</div>
+        <button class="nav-btn active" onclick="loadView('mixtape')">
+            Thesaurarium
+        </button>
+        <button class="nav-btn" onclick="loadView('radio')">
+            Radio
+        </button>
+        <div style="border-top: 1px solid #222; margin: 24px 0 12px 0;"></div>
+        <button class="nav-btn" id="btn-my-playlists" onclick="loadPlaylists()" style="display: none;">
+            My Collections
+        </button>
+        <button class="nav-btn" id="btn-create-pl"
+            onclick="document.getElementById('new-pl-name').value=''; openModal('create-pl-modal')"
+            style="display: none;">
+            <span>＋</span> Create Playlist
+        </button>
+        <button class="nav-btn" id="btn-chat" onclick="loadChatRooms()">
+            Chat Rooms
+        </button>
+        <button class="nav-btn" id="nav-ai" onclick="loadView('ai')">
+            Omniscient AI
+        </button>
+        <div class="acquisition-panel">
+            <div class="input-container" id="input-box">
+                <input type="text" 
+                    id="song-request" 
+                    class="caligo-input" 
+                    placeholder="Use Spotify Link or Search..." 
+                    autocomplete="off"
+                    onkeypress="handleEnter(event)">
+                
+                <button id="acquire-btn" class="acquire-btn" onclick="requestSong()" title="Ingest">
+                    <svg id="icon-download" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    
+                    <svg id="icon-loading" class="spinner" style="display:none;" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="2" x2="12" y2="6"></line>
+                        <line x1="12" y1="18" x2="12" y2="22"></line>
+                        <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
+                        <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
+                        <line x1="2" y1="12" x2="6" y2="12"></line>
+                        <line x1="18" y1="12" x2="22" y2="12"></line>
+                        <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
+                        <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
+                    </svg>
+                </button>
+            </div>            
+            <div id="status-text" class="status-line"></div>
+        </div>
+    </div>
+
+    <div class="main-view">
+        <div class="top-bar">
+            <button id="mobile-menu-btn" style="display:none;">☰</button>
+
+            <div class="search-container">
+                <select id="artist-filter" onchange="applyFilters()">
+                    <option value="">All Artists</option>
+                </select>
+                <input type="text" id="search-bar" placeholder="Search..." onkeyup="applyFilters()">
+            </div>
+
+            <div class="auth-section" id="auth-container">
+            </div>
+        </div>
+
+        <div class="content-area">
+            <button id="back-btn" class="btn-secondary" style="display:none; margin-bottom: 24px;"
+                onclick="backToGrid()">← Back</button>
+            <h1 id="page-title">Thesaurarium</h1>
+
+            <div id="grid-container" class="grid"></div>
+
+            <div id="list-container" class="list-view"></div>
+
+            <div id="ai-view" style="display: none; height: 100%; flex-direction: column;">
+                <div id="ai-history" style="flex-grow: 1; overflow-y: auto; margin-bottom: 20px; padding-right: 10px; display: flex; flex-direction: column; gap: 16px;">
+                    <div style="color: #808080; text-align: center; margin-top: 40px;">
+                        Ask me about music, artists, or lyrics...
+                    </div>
+                </div>
+
+                <div class="input-container" style="margin-bottom: 20px;">
+                    <input type="text" id="ai-input" class="caligo-input" placeholder="Ask the Omniscient Agent..." 
+                        onkeypress="if(event.key==='Enter') sendAIQuery()" autocomplete="off">
+                    <button onclick="sendAIQuery()" class="acquire-btn">
+                        <span style="font-size: 18px;">➤</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="chat-section" style="display: none;">
+            <div id="chat-lobby">
+                <div class="chat-lobby-header">
+                    <h2>Public Frequencies</h2>
+                    <button onclick="document.getElementById('new-room-name').value=''; openModal('create-room-modal')" 
+                        style="background:var(--accent); color:black; border:none; padding:10px 20px; border-radius:500px; font-weight:700; cursor:pointer; font-size:13px;">
+                        + Create Frequency
+                    </button>
+                </div>
+                <div class="grid-container" id="chat-rooms-grid">
+                </div>
+            </div>
+            <div id="active-chat-room" style="display: none;">
+                <div class="chat-interface">
+                    <div class="chat-header-bar">
+                        <button onclick="leaveRoom()" style="background:none; border:none; color:var(--text-muted); font-size: 24px; cursor:pointer;">←</button>
+                        <div>
+                            <div id="current-room-name" style="font-size: 18px; font-weight: 700; color: var(--accent);">Room Name</div>
+                            <div id="active-room-stats" style="font-size: 11px; color: #4caf50;">Connecting...</div>
+                            <div id="connection-status" style="font-size: 11px; color: #4caf50;">● Connected via XMPP</div>
+                        </div>
+                    </div>
+                    <div id="chat-messages" class="chat-messages-area">
+                    </div>
+                    <div class="chat-input-bar">
+                        <input type="text" id="chat-msg-input" class="chat-input-field" placeholder="Broadcast message..." onkeypress="handleChatEnter(event)" autocomplete="off">
+                        <button class="chat-send-btn" onclick="sendChatMessage()">➤</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="player-footer">
+        <div class="player-info">
+            <div id="np-title"></div>
+            <div id="np-album"></div>
+        </div>
+        <audio id="audio-player" controls preload="auto"></audio>
+        <div></div>
+    </div>
+
+    <div id="auth-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h2 id="auth-title">Log in</h2>
+            <div class="input-group">
+                <label>Username</label>
+                <input type="text" id="auth-user" placeholder="USERNAME">
+            </div>
+            <div class="input-group">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <label style="margin:0">Password</label>
+                    <span id="btn-suggest-pass" onclick="suggestPassword()">
+                        Suggest Strong Password
+                    </span>
+                </div>
+                <input type="password" id="auth-pass" placeholder="PASSWORD">
+            </div>
+            <div class="auth-error" id="auth-msg"></div>
+
+            <button id="btn-auth-submit" class="btn-primary" style="width:100%" onclick="submitAuth()">Go</button>
+
+            <div class="switch-mode" id="auth-switch" onclick="toggleAuthMode()">
+                No account? Register here.
+            </div>
+            <div style="margin-top:24px; font-size:12px; cursor:pointer; color:#666;" onclick="closeAuth()">Close</div>
+        </div>
+    </div>
+
+    <div id="create-pl-modal" class="modal-overlay" style="z-index:1001">
+        <div class="modal-box">
+            <h2>New Collection</h2>
+            <div class="input-group">
+                <label>Collection Name</label>
+                <input type="text" id="new-pl-name" placeholder="e.g. Late Night">
+            </div>
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button class="btn-secondary"
+                    onclick="document.getElementById('create-pl-modal').style.display='none'">Cancel</button>
+                <button class="btn-primary" onclick="submitCreatePlaylist()">Create</button>
+            </div>
+        </div>
+    </div>
+    <div id="create-room-modal" class="modal-overlay" style="z-index:1002">
+        <div class="modal-box">
+            <h2>New Frequency</h2>
+            <p style="color:#888; font-size:13px; margin-bottom:20px;">Create a public channel.</p>
+            
+            <div class="input-group">
+                <label>Frequency Name</label>
+                <input type="text" id="new-room-name" placeholder="e.g., Synthwave Lounge">
+            </div>
+
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button class="btn-secondary" onclick="document.getElementById('create-room-modal').style.display='none'">Cancel</button>
+                <button class="btn-primary" onclick="createChatRoom()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="add-track-modal" class="modal-overlay" style="z-index:1002">
+        <div class="modal-box">
+            <h2>Add to Collection</h2>
+            <p id="track-to-add-name" style="color:#888; font-size:13px; margin-bottom:20px;"></p>
+
+            <div id="playlist-select-container" class="playlist-select-list">
+            </div>
+
+            <button class="btn-secondary" style="width:100%"
+                onclick="document.getElementById('add-track-modal').style.display='none'">Cancel</button>
+        </div>
+    </div>
+
+    <div id="toast">Notification</div>
+    <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <script>
+        const API_AUTH = '/cgi_bin/auth_app';
+        const API_MIX = '/cgi_bin/mixtape_app';
+        const API_PLAYLIST = '/cgi_bin/playlist_manager';
+        const RADIO_STORAGE_KEY = 'caligo_radio_queue';
+
+        let currentView = 'mixtape';    
+        let xmppReconnectTimer = null;
+        let currentUser = localStorage.getItem('caligo_user');
+        let currentPass = localStorage.getItem('caligo_pass');
+        let isRegisterMode = false;
+        let publicAlbums = [];
+        let myPlaylists = [];
+        let currentAlbumName = "";
+        let currentAlbumArtist = "";
+
+        let currentQueue = [];
+        let currentTrackIndex = -1;
+        let trackPendingAdd = null;
+        let chatSocket = null;
+        let currentRoom = null;
+        let myUsername = "User_" + Math.floor(Math.random() * 1000);
+        let radioEventSource = null;
+        let stateQueue = JSON.parse(sessionStorage.getItem(RADIO_STORAGE_KEY) || '[]');
+        const SESSION_ID = sessionStorage.getItem('music_agent_session') || 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        
+        sessionStorage.setItem('music_agent_session', SESSION_ID);
+
+        function updateStateQueue(relativePath, state) {
+            if (!stateQueue.filter(x => x.id === relativePath).length) {
+                stateQueue.push({id: relativePath, state: state});
+            }
+            else{
+                stateQueue = stateQueue.map(x => x.id === relativePath ? {id: relativePath, state: state} : x);
+            }
+
+            sessionStorage.setItem(RADIO_STORAGE_KEY, JSON.stringify(stateQueue));
+        }
+
+        function initRadioEvents() {
+            if (radioEventSource) return;
+
+            radioEventSource = new EventSource('/radio/events');
+
+            radioEventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    const player = document.getElementById('audio-player');
+
+                    if (player && player.src && player.src.includes('/radio/')) {
+                        document.getElementById('np-title').textContent = data.title || "Unknown Title";
+                        document.getElementById('np-album').textContent = data.artist || "Unknown Artist";
+                    }
+
+                    window.dispatchEvent(new CustomEvent('radio-change', { detail: data.playing }));
+                } catch (e) {
+                    console.error("Radio SSE Parse Error:", e);
+                }
+            };
+        }
+        
+        async function addToRadio(audioUrl, trackTitle, btnElement) {
+            let relativePath = audioUrl.split('/mixtape/')[1] || audioUrl;
+            relativePath = decodeURIComponent(relativePath);
+            
+            const statusText = btnElement.querySelector('.status-text');
+            
+            btnElement.classList.add('loading');
+            btnElement.disabled = true;
+            statusText.innerText = "SYNCING";
+            
+            updateStateQueue(relativePath, "SYNCING");
+
+            initRadioEvents();
+
+            try {
+                const response = await fetch('/cgi_bin/radio_control', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: relativePath,
+                        artist: currentAlbumArtist || "Unknown Artist",
+                        album: currentAlbumName || "Unknown Album",
+                        title: trackTitle || "Unknown Title"
+                    })
+                });
+
+                const data = await response.json();
+                
+                btnElement.classList.remove('loading');
+
+                if (data.success) {
+                    btnElement.classList.add('waiting');
+                    statusText.innerText = "WAITING";
+                    
+                    updateStateQueue(relativePath, "WAITING");
+
+                    showToast("Signal broadcasting to radio");
+                    
+                    const myTrackId = data.track_id;
+
+                    const checkStatus = (e) => {
+                        const playingNow = e.detail;
+                        
+                        if (playingNow === myTrackId) {
+                            btnElement.classList.remove('waiting');
+                            btnElement.classList.add('live');
+                            statusText.innerText = "LIVE";
+                            
+                            updateStateQueue(relativePath, "LIVE");
+                        } 
+                        else if (statusText.innerText === "LIVE" && playingNow !== myTrackId) {
+                            resetRadioBtn(btnElement, statusText, relativePath, checkStatus);
+                        }
+                    };
+
+                    window.addEventListener('radio-change', checkStatus);
+
+                } else {
+                    throw new Error(data.message);
+                }
+
+            } catch (e) {
+                console.error(e);
+                btnElement.classList.remove('loading');
+                btnElement.classList.add('error');
+                statusText.innerText = "ERROR";
+
+                updateStateQueue(relativePath, "ERROR");
+
+                setTimeout(() => {
+                    btnElement.classList.remove('error');
+                    btnElement.classList.remove('live');
+                    btnElement.disabled = false;
+                    statusText.innerText = "QUEUE";
+
+                    updateStateQueue(relativePath, "QUEUE");
+                }, 3000);
+            }
+        }
+        
+        function resetRadioBtn(btn, txt, relativePath, listener) {
+            btn.classList.remove('live', 'waiting');
+            
+            btn.disabled = false;
+            txt.innerText = "QUEUE";
+            
+            updateStateQueue(relativePath, "QUEUE");
+            
+            window.removeEventListener('radio-change', listener);
+        }
+
+        function createChatRoom() {
+            const input = document.getElementById('new-room-name');
+            const name = input.value.trim().replace(/\s+/g, '_'); 
+            
+            if(!name) return;
+            
+            closeModal('create-room-modal');
+            joinRoom(name);
+            
+            input.value = '';
+        }
+
+        function joinRoom(name) {
+            currentRoom = name;
+            
+            document.getElementById('chat-lobby').style.display = 'none';
+            document.getElementById('active-chat-room').style.display = 'block';
+            document.getElementById('current-room-name').innerText = "# " + name;
+            document.getElementById('chat-messages').innerHTML = '';
+            
+            addSystemMessage(`Joining frequency ${name}...`);
+            
+            if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) {
+                connectXMPP();
+            } else {
+                chatSocket.send(`<presence to='${name}@conference.radio/${myUsername}'/>`);
+            }
+        }
+
+        function leaveRoom() {
+            currentRoom = null;
+            
+            if(chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+                chatSocket.send(`<presence to='lobby@conference.radio/${myUsername}'/>`);
+            }
+
+            document.getElementById('active-chat-room').style.display = 'none';
+            document.getElementById('chat-lobby').style.display = 'block';
+            
+            loadChatRooms();
+        }
+
+        let xmppState = 'DISCONNECTED'; 
+
+        function connectXMPP() {
+            const status = document.getElementById('connection-status') || document.getElementById('chat-status');
+            if (chatSocket && (chatSocket.readyState === WebSocket.OPEN || chatSocket.readyState === WebSocket.CONNECTING)) {
+                return;
+            }
+
+            if(status) {
+                status.style.color = 'orange';
+                status.innerText = "● Connecting...";
+            }
+
+            const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            const host = window.location.host; 
+            const url = `${protocol}://${host}/chat/`;
+
+            try {
+                chatSocket = new WebSocket(url, "xmpp");
+
+                chatSocket.onopen = function() {
+                    if(status) {
+                        status.style.color = '#ffeb3b'; 
+                        status.innerText = "● Negotiating...";
+                    }
+                    console.log("[XMPP] Connected. Starting Stream...");
+
+                    const startStream = "<stream:stream to='radio' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' version='1.0'>";
+                    chatSocket.send(startStream);
+                    xmppState = 'WAIT_SASL';
+                };
+
+                chatSocket.onmessage = function(event) {
+                    const msg = event.data;
+
+                    if (xmppState === 'WAIT_SASL' && msg.includes("mechanisms")) {
+                        console.log("[XMPP] Sending Auth...");
+                        const user = myUsername || "guest";
+                        const pass = "password"; 
+                        const raw = `\u0000${user}\u0000${pass}`;
+                        const token = btoa(raw);
+                        
+                        const authStanza = `<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism='PLAIN'>${token}</auth>`;
+                        chatSocket.send(authStanza);
+                        xmppState = 'WAIT_AUTH_RESULT';
+                        return;
+                    }
+
+                    if (xmppState === 'WAIT_AUTH_RESULT' && msg.includes("success")) {
+                        console.log("[XMPP] Auth Success! Restarting stream...");
+                        const restartStream = "<stream:stream to='radio' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' version='1.0'>";
+                        chatSocket.send(restartStream);
+                        xmppState = 'WAIT_BIND_OFFER';
+                        return;
+                    }
+
+                    if (xmppState === 'WAIT_BIND_OFFER' && msg.includes("bind")) {
+                        console.log("[XMPP] Binding Resource...");
+                        const bindStanza = "<iq type='set' id='bind_1'><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'><resource>web-client</resource></bind></iq>";
+                        chatSocket.send(bindStanza);
+                        xmppState = 'WAIT_BIND_RESULT';
+                        return;
+                    }
+
+                    if (xmppState === 'WAIT_BIND_RESULT' && msg.includes("jid")) {
+                        console.log("[XMPP] Bound! Joining Room...");
+                        xmppState = 'READY';
+
+                        chatSocket.send("<iq type='set' id='sess_1'><session xmlns='urn:ietf:params:xml:ns:xmpp-session'/></iq>");
+                        //wait for session to be established before sending presence
+                        const presence = `<presence to='${currentRoom}@conference.radio/${myUsername}'/>`;// looks fishy change to correct presence stanza
+                        chatSocket.send(presence);
+                        
+                        if(status) {
+                            status.style.color = '#4caf50';
+                            status.innerText = "● Signal Established";
+                        }
+                        addSystemMessage("Connected to Caligo Network.");
+                        return;
+                    }
+                    
+                    if (xmppState !== 'READY') return;
+                    
+                    if (msg.includes("<roomlist>")) {
+                        const match = msg.match(/<roomlist>[\s\S]*?<\/roomlist>/);
+                        
+                        if (match) {
+                            const parser = new DOMParser();
+                            const doc = parser.parseFromString(match[0], "text/xml");
+                            const rooms = doc.getElementsByTagName("room");
+
+                            for(let i=0; i<rooms.length; i++) {
+                                const rName = rooms[i].getAttribute("name");
+                                const rCount = rooms[i].getAttribute("count");
+                                
+                                const el = document.getElementById(`count-${rName}`);
+                                if(el) {
+                                    el.innerText = `${rCount} online`;
+                                    el.style.color = (rCount > 0) ? "#4caf50" : "#666";
+                                }
+                                
+                                if (currentRoom && rName === currentRoom) {
+                                    const statusEl = document.getElementById('active-room-stats');
+                                    if (statusEl) statusEl.innerText = `● ${rCount} Online`;
+                                }
+                            }
+                        }
+
+                        return;
+                    }
+                    
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(msg, "text/xml");
+                    const message = xmlDoc.getElementsByTagName("message")[0];
+                    
+                    if (message) {
+                        const body = message.getElementsByTagName("body")[0];
+                        const from = message.getAttribute("from");
+
+                        if (body) {
+                            let content = body.textContent;
+                            let senderName = from;
+
+                            if (senderName.includes("/")) {
+                                senderName = senderName.split("/")[1] || senderName.split("/")[0];
+                            }
+                            
+                            if (senderName === myUsername) return; 
+
+                            if (typeof addMessageBubble === 'function') {
+                                addMessageBubble(senderName, content, false);
+                            } else if (typeof addChatMessage === 'function') {
+                                addChatMessage(senderName, content, false);
+                            }
+                        }
+                    }
+                };
+
+                chatSocket.onclose = function() {
+                    console.log("XMPP Disconnected");
+                    xmppState = 'DISCONNECTED';
+                    if(status) {
+                        status.style.color = '#cf6679';
+                        status.innerText = "● Signal Lost";
+                    }
+                    
+                    setTimeout(connectXMPP, 3000); 
+                };
+
+            } catch(e) {
+                console.error(e);
+                if(status) status.innerText = "Connection Failed";
+            }
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chat-msg-input');
+            const msg = input.value.trim();
+            if (!msg || !chatSocket) return;
+
+            const stanza = `<message type='groupchat' to='${currentRoom}@conference.radio' from='${myUsername}'><body>${msg}</body></message>`;            
+            chatSocket.send(stanza);
+            
+            addMessageBubble("Me", msg, true);
+            input.value = "";
+        }
+
+        function handleChatEnter(e) {
+            if (e.key === 'Enter') sendChatMessage();
+        }
+
+        function addMessageBubble(sender, text, isMe) {
+            const box = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = isMe ? "message-bubble msg-out" : "message-bubble msg-in";
+            
+            const meta = `<span class="msg-meta">${sender}</span>`;
+            div.innerHTML = (isMe ? "" : meta) + text;
+            
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function addSystemMessage(text) {
+            const box = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.style.textAlign = 'center';
+            div.style.fontSize = '11px';
+            div.style.color = '#666';
+            div.style.margin = '8px 0';
+            div.innerText = text;
+            box.appendChild(div);
+        }
+
+        async function loadChatRooms() {
+            loadView('chat'); 
+            
+            const grid = document.getElementById('chat-rooms-grid');
+            grid.innerHTML = '<div style="color:#666">Loading frequencies...</div>';
+
+            try {
+                const response = await fetch('/cgi_bin/get_chat_rooms');
+                if (!response.ok) throw new Error("Signal lost");
+
+                const rooms = await response.json();
+                grid.innerHTML = ''; 
+
+                if (rooms.length === 0) {
+                    grid.innerHTML = '<p style="color:#666">No active frequencies. Create one above.</p>';
+                    return;
+                }
+
+                rooms.forEach(room => {
+                    const card = document.createElement('div');
+                    card.className = 'chat-room-card';
+                    card.innerHTML = `
+                        <div class="chat-room-title">#${room.name}</div>
+                        <div class="chat-room-users" id="count-${room.name}">
+                            Waiting for signal... 
+                        </div>
+                    `;
+                    card.onclick = () => joinRoom(room.name);
+                    grid.appendChild(card);
+                });
+
+                if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) {
+                    connectXMPP();
+                } else {
+                    chatSocket.send(`<presence to='lobby@conference.radio/${myUsername}'/>`);
+                }
+
+            } catch (error) {
+                console.error("Failed to load rooms:", error);
+                grid.innerHTML = '<div style="color:var(--error)">Failed to retrieve frequencies.</div>';
+            }
+        }
+
+        function closeModal(id) {
+            const modal = document.getElementById(id);
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            updateUIState();
+            loadView('mixtape');
+
+            const player = document.getElementById('audio-player');
+            player.addEventListener('ended', () => {
+                if (currentTrackIndex < currentQueue.length - 1) {
+                    playTrack(currentTrackIndex + 1);
+                }
+            });
+        });
+
+        function toggleSidebar() {
+            document.querySelector('.sidebar').classList.toggle('active');
+            document.getElementById('sidebar-overlay').classList.toggle('active');
+        }
+
+        function handleEnter(e) {
+            if (e.key === 'Enter') requestSong();
+        }
+        
+        async function requestSong() {
+            const input = document.getElementById('song-request');
+            const status = document.getElementById('status-text');
+            const btnIcon = document.getElementById('icon-download');
+            const loadIcon = document.getElementById('icon-loading');
+            
+            if (!currentUser) {
+                status.textContent = "> ACCESS DENIED: LOGIN REQUIRED";
+                status.style.color = "#cf6679";
+                return;
+            }
+            
+            const query = input.value.trim();
+            if (!query) return;
+
+            input.value = ""; 
+            input.placeholder = "Processing...";
+            input.disabled = true;
+            btnIcon.style.display = 'none';
+            loadIcon.style.display = 'block';
+            status.textContent = "> INITIALIZING UPLINK...";
+            status.style.color = "#888";
+
+            try {
+                const response = await fetch('/cgi_bin/request_song', {
+                    method: 'POST',                    
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: `${currentUser}|${query}`
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = "";
+
+                while (true) {
+                    const { value, done } = await reader.read();
+
+                    if (value) {
+                        buffer += decoder.decode(value, { stream: true });
+                        let newlineIndex;
+                        while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+                            const line = buffer.substring(0, newlineIndex).trim();
+                            buffer = buffer.substring(newlineIndex + 1);
+                            if (line) updateStatus(status, line);
+                        }
+                    }
+                    
+                    if (done) {
+                        if (buffer.trim()) updateStatus(status, buffer.trim());
+                        break;
+                    }
+                }
+
+                finalizeUI(input, btnIcon, loadIcon, status);
+
+            } catch (err) {
+                console.error("Stream Error:", err);
+                status.textContent = "> CONNECTION ERROR";
+                status.style.color = "#cf6679";
+                
+                input.disabled = false;
+                btnIcon.style.display = 'block';
+                loadIcon.style.display = 'none';
+            }
+        }
+
+        function finalizeUI(input, btnIcon, loadIcon, status) {
+            input.disabled = false;
+            input.placeholder = "Use Link...";
+            input.focus();
+            btnIcon.style.display = 'block';
+            loadIcon.style.display = 'none';
+            
+            status.textContent = "> DONE. REFRESH TO VIEW.";
+            status.style.color = "#fff"; 
+        }
+
+        function updateStatus(element, text) {
+            element.textContent = "> " + text;
+            if (text.includes("Downloading")) element.style.color = "#e0e0e0";
+            else if (text.includes("Queueing")) element.style.color = "#888";
+            else if (text.includes("SUCCESS")) element.style.color = "#4caf50";
+            else if (text.includes("ERROR") || text.includes("Failed")) element.style.color = "#cf6679";
+        }
+
+        function updateUIState() {
+            const container = document.getElementById('auth-container');
+            const btnMyPl = document.getElementById('btn-my-playlists');
+            const btnCreatePl = document.getElementById('btn-create-pl');
+
+            if (currentUser) {
+                container.innerHTML = `
+                    <div class="user-display">
+                        <span>${currentUser}</span>
+                        <div class="logout-icon" onclick="logout()" title="Logout">✕</div>
+                    </div>
+                `;
+                btnMyPl.style.display = 'flex';
+                btnCreatePl.style.display = 'flex';
+            } else {
+                container.innerHTML = `
+                    <button class="btn-secondary" onclick="openAuth('register')">Sign up</button>
+                    <button class="btn-primary" onclick="openAuth('login')">Log in</button>
+                `;
+                btnMyPl.style.display = 'none';
+                btnCreatePl.style.display = 'none';
+            }
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = 'show';
+            setTimeout(() => { t.className = t.className.replace('show', ''); }, 3000);
+        }
+
+        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+
+        function openAuth(mode) {
+            isRegisterMode = (mode === 'register');
+            renderAuthModal();
+            openModal('auth-modal');
+            document.getElementById('auth-msg').textContent = '';
+        }
+
+        function closeAuth() {
+            document.getElementById('auth-modal').style.display = 'none';
+        }
+
+        function toggleAuthMode() {
+            isRegisterMode = !isRegisterMode;
+            renderAuthModal();
+        }
+
+        function suggestPassword() {
+            const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+            let pass = "";
+            for (let i = 0; i < 14; i++) {
+                pass += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            const input = document.getElementById('auth-pass');
+            input.value = pass;
+            input.type = "text";
+            input.select();
+            showToast("Password Copied");
+        }
+
+        function renderAuthModal() {
+            const title = document.getElementById('auth-title');
+            const switcher = document.getElementById('auth-switch');
+            const suggestBtn = document.getElementById('btn-suggest-pass');
+            const passInput = document.getElementById('auth-pass');
+
+            passInput.type = "password";
+            passInput.value = "";
+
+            if (isRegisterMode) {
+                title.textContent = "Create Account";
+                switcher.textContent = "Already have an account? Log in.";
+                suggestBtn.style.display = 'block';
+            } else {
+                title.textContent = "Log In";
+                switcher.textContent = "No account? Register here.";
+                suggestBtn.style.display = 'none';
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            currentPass = null;
+            localStorage.removeItem('caligo_user');
+            localStorage.removeItem('caligo_pass');
+            
+            updateInterfaceState();
+            
+            const player = document.getElementById('audio-player');
+            player.pause();
+            player.src = "";
+
+            document.getElementById('np-title').textContent = "";
+            document.getElementById('np-album').textContent = "";
+            
+            publicAlbums = [];
+            
+            const dlPanel = document.querySelector('.acquisition-panel');
+            if(dlPanel) dlPanel.classList.remove('visible');
+
+            updateUIState();
+            showToast("Logged out");
+            loadView('mixtape');
+        }
+
+        async function submitAuth() {
+            const u = document.getElementById('auth-user').value;
+            const p = document.getElementById('auth-pass').value;
+            const msg = document.getElementById('auth-msg');
+            const btn = document.getElementById('btn-auth-submit');
+
+            if (!u || !p) { msg.textContent = "Please fill in all fields"; return; }
+
+            btn.disabled = true;
+            btn.textContent = "Processing...";
+            msg.textContent = "";
+
+            const action = isRegisterMode ? 'register' : 'login';
+            const res = await apiCall(API_AUTH, { action: action, name: u, password: p });
+
+            btn.disabled = false;
+            btn.textContent = "Go";
+
+            if (res.success) {
+                currentUser = u;
+                currentPass = p;
+                myUsername = u; 
+                
+                localStorage.setItem('caligo_user', u);
+                localStorage.setItem('caligo_pass', p);
+                
+                updateInterfaceState();
+                
+                publicAlbums = [];
+
+                const dlPanel = document.querySelector('.acquisition-panel');
+                if(dlPanel) dlPanel.classList.add('visible');
+
+                updateUIState();
+                closeAuth();
+                showToast(isRegisterMode ? `Welcome, ${u}!` : `Welcome back, ${u}`);
+                loadView('mixtape');
+            } else {
+                msg.textContent = res.error || "Authentication failed";
+            }
+        }
+
+        async function apiCall(url, data) {
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const text = await res.text();
+                return text ? JSON.parse(text) : {};
+            } catch (e) {
+                console.error(e);
+                return { success: false, error: "Network Error" };
+            }
+        }
+
+        function disconnectXMPP() {
+            if (chatSocket) {
+                chatSocket.onclose = null; 
+                chatSocket.close();
+                chatSocket = null;
+                console.log("[XMPP] Disconnected (Navigation)");
+            }
+        }
+
+        async function loadView(view) {
+            const title = document.getElementById('page-title');
+            const grid = document.getElementById('grid-container');
+            const list = document.getElementById('list-container');
+            const chatSection = document.getElementById('chat-section');
+            const aiView = document.getElementById('ai-view');
+            const backBtn = document.getElementById('back-btn');
+            const searchContainer = document.querySelector('.search-container');
+            const player = document.getElementById('audio-player');
+            
+            if (view !== 'chat') {
+                disconnectXMPP();
+            }
+
+            grid.style.display = 'none';
+            list.style.display = 'none';
+            chatSection.style.display = 'none';
+            if(aiView) aiView.style.display = 'none';
+            backBtn.style.display = 'none';
+
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector('.sidebar').classList.remove('active');
+            document.getElementById('sidebar-overlay').classList.remove('active');
+            if (view === 'mixtape') {
+                title.textContent = "Thesaurarium";
+                document.querySelector('.nav-btn[onclick="loadView(\'mixtape\')"]').classList.add('active');
+                
+                searchContainer.style.visibility = 'visible';
+                searchContainer.style.opacity = '1';
+                grid.style.display = 'grid';
+
+                if (publicAlbums.length === 0) {
+                    grid.innerHTML = '<p style="color:#666; padding:20px;">Loading...</p>';
+                    
+                    const userParam = currentUser ? `?user=${encodeURIComponent(currentUser)}` : '';
+                    
+                    try {
+                        const res = await apiCall(API_MIX + userParam, {});
+                        publicAlbums = res.albums || [];
+                    } catch (e) {
+                        console.error("Failed to load albums:", e);
+                        publicAlbums = [];
+                    }
+
+                    if(typeof populateFilters === 'function') populateFilters();
+                }
+                
+                applyFilters();
+            }
+            else if (view === 'radio') {
+                title.textContent = "Radio";
+                document.querySelector('.nav-btn[onclick="loadView(\'radio\')"]').classList.add('active');
+                
+                searchContainer.style.visibility = 'hidden';
+                searchContainer.style.opacity = '0';
+                
+                grid.style.display = 'grid';
+                
+                const isAlreadyPlayingRadio = player.src && player.src.includes('/radio/');
+
+                if (!isAlreadyPlayingRadio) {
+                    initRadioEvents();
+
+                    document.getElementById('np-title').textContent = "";
+                    document.getElementById('np-album').textContent = "";
+
+                    player.classList.add('radio-mode');
+                    player.src = '/radio/';
+
+                    grid.innerHTML = `
+                        <div id="radio-card" style="grid-column: 1/-1; background: #161616; padding: 80px; border-radius: 8px; text-align: center; border: 1px solid #333;">
+                            <h2 style="color:white; font-weight:600; margin-bottom:12px;">Tuning In...</h2>
+                            <p style="color:#666; font-size:14px;">Establishing connection to the stream.</p>
+                        </div>`;
+                    
+                    player.play().catch(e => {
+                        const card = document.getElementById('radio-card');
+                        if (card) card.innerHTML = `
+                            <h2 style="color:white; font-weight:600; margin-bottom:12px;">Ready</h2>
+                            <p style="color:#666; font-size:14px;">Press play to start the stream.</p>
+                        `;
+                    });
+                }
+                else {
+                    grid.innerHTML = `
+                        <div id="radio-card" style="grid-column: 1/-1; background: #161616; padding: 80px; border-radius: 8px; text-align: center; border: 1px solid #333;">
+                            <h2 style="color:white; font-weight:600; margin-bottom:12px;">Live Feed</h2>
+                            <p style="color:#888; font-size:14px;">You are listening to the broadcast.</p>
+                        </div>`;
+                }
+
+                player.onplaying = () => {
+                    const card = document.getElementById('radio-card');
+                    if (card) {
+                        card.innerHTML = `
+                            <h2 style="color:white; font-weight:600; margin-bottom:12px;">Live Feed</h2>
+                            <p style="color:#888; font-size:14px;">You are listening to the broadcast.</p>
+                        `;
+                    }
+                };
+            }
+            else if (view === 'chat') {
+                title.textContent = "Chat Rooms";
+                document.getElementById('btn-chat').classList.add('active');
+
+                searchContainer.style.visibility = 'hidden';
+                searchContainer.style.opacity = '0';
+
+                chatSection.style.display = 'block';
+                
+                if(!currentRoom) {
+                    document.getElementById('chat-lobby').style.display = 'block';
+                    document.getElementById('active-chat-room').style.display = 'none';
+                }
+
+                //connectXMPP();
+            }
+            else if (view === 'ai') {
+                title.textContent = "Omniscient AI";
+                const aiBtn = document.getElementById('nav-ai');
+                if(aiBtn) aiBtn.classList.add('active');
+
+                searchContainer.style.visibility = 'hidden';
+                searchContainer.style.opacity = '0';
+                
+                aiView.style.display = 'flex';
+                setTimeout(() => document.getElementById('ai-input').focus(), 100);
+            }
+        }
+        async function sendAIQuery() {
+            const input = document.getElementById('ai-input');
+            const history = document.getElementById('ai-history');
+            const query = input.value.trim();
+
+            if (!query) return;
+
+            const userMsg = document.createElement('div');
+            userMsg.style.alignSelf = 'flex-end';
+            userMsg.style.background = '#222';
+            userMsg.style.padding = '12px 16px';
+            userMsg.style.borderRadius = '12px 12px 0 12px';
+            userMsg.style.maxWidth = '70%';
+            userMsg.innerHTML = `<div style="font-size: 11px; color: #fff; margin-bottom: 4px;">You</div>${query}`;
+            history.appendChild(userMsg);
+            
+            input.value = '';
+            history.scrollTop = history.scrollHeight;
+
+            const loadingId = 'ai-loading-' + Date.now();
+            const loadingMsg = document.createElement('div');
+            loadingMsg.id = loadingId;
+            loadingMsg.style.alignSelf = 'flex-start';
+            loadingMsg.style.background = '#161616';
+            loadingMsg.style.padding = '12px 16px';
+            loadingMsg.style.borderRadius = '12px 12px 12px 0';
+            loadingMsg.style.border = '1px solid #333';
+            loadingMsg.style.maxWidth = '70%';
+            loadingMsg.innerHTML = `<div style="color: #888;">Thinking...</div>`;
+            history.appendChild(loadingMsg);
+
+            try {
+                const response = await fetch('/cgi_bin/ask_ai', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        session_id: SESSION_ID, 
+                        query: query 
+                    })
+                });
+                
+                const rawText = await response.text();
+                //console.log("Server Debug Output:", rawText);
+                
+                let jsonResponse;
+                try {
+                    jsonResponse = JSON.parse(rawText);
+                } catch (e) {
+                    throw new Error("Server returned non-JSON: " + rawText.substring(0, 50) + "...");
+                }
+                
+                const cleanAnswer = jsonResponse.answer;
+                //console.log("AI Logs:", jsonResponse.logs);
+
+                let htmlContent = '';
+
+                if (Array.isArray(cleanAnswer)) {
+                    htmlContent = '<div style="display:flex; flex-direction:column; gap:8px; margin-top:4px;">';
+                    cleanAnswer.forEach(song => {
+                        htmlContent += `
+                            <div style="background:#222; border:1px solid #333; padding:8px 12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                                <div style="display:flex; flex-direction:column; overflow:hidden;">
+                                    <span style="color:#fff; font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${song.artist}</span>
+                                    <span style="color:#aaa; font-size:11px;">${song.title}</span>
+                                </div>
+                                ${song.url ? `
+                                <a href="${song.url}" target="_blank" style="margin-left:10px; background:#4caf5020; color:#4caf50; border:1px solid #4caf50; padding:4px 8px; border-radius:4px; font-size:10px; text-decoration:none; font-weight:bold; white-space:nowrap;">
+                                    OPEN ↗
+                                </a>` : ''}
+                            </div>`;
+                    });
+                    htmlContent += '</div>';
+                } else {
+                    htmlContent = `<div style="white-space: pre-wrap; line-height: 1.5; color:#eee;">${cleanAnswer}</div>`;
+                }
+
+                const bubble = document.getElementById(loadingId);
+                bubble.innerHTML = `
+                    <div style="font-size: 10px; color: #4caf50; margin-bottom: 6px; font-weight:bold; letter-spacing:0.5px;">OMNISCIENT AI</div>
+                    ${htmlContent}
+                `;
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById(loadingId).innerHTML = `<span style="color: #cf6679">Connection Failed</span>`;
+            }
+            
+            history.scrollTop = history.scrollHeight;
+        }
+        async function loadPlaylists() {
+            if (!currentUser) return;
+            const searchContainer = document.querySelector('.search-container');
+
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-my-playlists').classList.add('active');
+
+
+            document.querySelector('.sidebar').classList.remove('active');
+            document.getElementById('sidebar-overlay').classList.remove('active');
+
+            searchContainer.style.visibility = 'hidden';
+            searchContainer.style.opacity = '0';
+
+            const res = await apiCall(API_PLAYLIST, { action: 'get_playlists', username: currentUser });
+            const playlists = res.playlists || {};
+
+            myPlaylists = Object.keys(playlists).map(k => ({ 
+                name: k, 
+                artist: playlists[k].length + ' tracks', 
+                cover: 'https://placehold.co/300x300/111/333?text=PL', 
+                tracks: playlists[k], 
+                isPlaylist: true 
+            }));
+
+            backToGrid();
+        }
+
+        function backToGrid() {
+            const isMyCollections = document.getElementById('btn-my-playlists').classList.contains('active');
+            document.getElementById('page-title').textContent = isMyCollections ? 'My Collections' : 'Thesaurarium';
+
+            document.getElementById('grid-container').style.display = 'grid';
+            document.getElementById('list-container').style.display = 'none';
+            document.getElementById('back-btn').style.display = 'none';
+
+            applyFilters();
+        }
+
+        function renderAlbums(list) {
+            const grid = document.getElementById('grid-container');
+            grid.innerHTML = '';
+
+            if (list.length === 0) { grid.innerHTML = '<p style="color:#666">Nothing found.</p>'; return; }
+
+            list.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'card';
+                const img = item.cover || 'https://placehold.co/300x300/111/333?text=No+Cover';
+
+                el.innerHTML = `
+                    <img src="${img}">
+                    <div class="card-title">${item.name}</div>
+                    <div class="card-sub">${item.artist}</div>
+                `;
+
+                el.onclick = () => showTracks(item);
+                grid.appendChild(el);
+            });
+        }
+
+        function showTracks(album) {
+            const grid = document.getElementById('grid-container');
+            const list = document.getElementById('list-container');
+            const title = document.getElementById('page-title');
+            const backBtn = document.getElementById('back-btn');
+
+            title.textContent = album.name;
+            currentAlbumName = album.name;
+            currentAlbumArtist = album.artist;
+            
+            grid.style.display = 'none';
+            list.style.display = 'flex';
+            backBtn.style.display = 'inline-block';
+
+            list.innerHTML = '';
+
+            if (!album.tracks || album.tracks.length === 0) {
+                list.innerHTML = '<p style="padding:20px; color:#666;">No tracks in this collection.</p>';
+                return;
+            }
+
+            const controls = document.createElement('div');
+            controls.className = 'album-actions'; 
+            const safeName = album.name.replace(/'/g, "\\'");
+            controls.innerHTML = `
+                <button class="btn-primary" onclick="playTrack(0)">▶ Play All</button>
+                <button class="btn-secondary" onclick="downloadAlbum('${safeName}')">↓ Download All</button>
+            `;
+            list.appendChild(controls);
+
+            currentQueue = album.tracks;
+
+            album.tracks.forEach((t, idx) => {
+                const row = document.createElement('div');
+                row.className = 'track-row';
+                
+                const safeTitle = t.title.replace(/'/g, "\\'");
+                const safeUrl = t.audio_url.replace(/'/g, "\\'");
+
+                var statusText = stateQueue.find(x => `/mixtape/${x.id}` === safeUrl)?.state || "QUEUE";
+                var className = statusText.toLowerCase();
+                
+                row.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:16px; flex-grow:1;">
+                        <span style="color:#444; width:20px; font-size:12px;">${idx + 1}</span>
+                        <span style="font-weight:500">${t.title}</span>
+                    </div>
+                    
+                    <div class="track-actions">
+                        ${currentUser && !album.isPlaylist ? 
+                            `<button class="btn-secondary" style="padding:4px 10px; font-size:10px;" onclick="initAddToPlaylist(event, ${idx})">＋</button>` 
+                            : ''}
+
+                        <button class="btn-live-control ${className}" 
+                                onclick="event.stopPropagation(); addToRadio('${safeUrl}', '${safeTitle}', this)"
+                                title="Queue to Live Radio">
+                            <span class="live-dot"></span>
+                            <span class="status-text">${statusText}</span>
+                        </button>
+
+                        <button class="download-btn" 
+                            onclick="event.stopPropagation(); downloadTrack('${safeUrl}', '${safeTitle}.mp3')"
+                            title="Download Track" style="margin-left:8px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                        </button>
+                    </div>
+                `;
+
+                row.addEventListener('click', (e) => {
+                    if (!e.target.closest('button')) {
+                        playTrack(idx);
+                    }
+                });
+                
+                list.appendChild(row);
+            });
+        }
+
+        function playTrack(idx) {
+            if (idx < 0 || idx >= currentQueue.length) return;
+
+            currentTrackIndex = idx;
+            const t = currentQueue[idx];
+            const player = document.getElementById('audio-player');
+            player.classList.remove('radio-mode');
+
+            player.src = t.audio_url;
+            player.play();
+
+            document.getElementById('np-title').textContent = t.title;
+            document.getElementById('np-album').textContent = currentAlbumName;
+
+            showToast(`Playing: ${t.title}`);
+
+            const rows = document.querySelectorAll('.track-row');
+            rows.forEach((r, i) => {
+                if (i === idx) r.classList.add('active');
+                else r.classList.remove('active');
+            });
+        }
+
+        async function submitCreatePlaylist() {
+            const name = document.getElementById('new-pl-name').value;
+            if (!name) return;
+
+            await apiCall(API_PLAYLIST, {
+                action: 'create_playlist',
+                username: currentUser,
+                playlist_name: name
+            });
+
+            document.getElementById('create-pl-modal').style.display = 'none';
+            showToast("Collection created");
+            loadPlaylists();
+        }
+
+        async function initAddToPlaylist(e, idx) {
+            e.stopPropagation();
+            trackPendingAdd = currentQueue[idx];
+
+            const container = document.getElementById('playlist-select-container');
+            const nameDisplay = document.getElementById('track-to-add-name');
+            nameDisplay.textContent = `Adding: ${trackPendingAdd.title}`;
+            container.innerHTML = "<p style='padding:10px; color:#666;'>Loading...</p>";
+
+            openModal('add-track-modal');
+
+            const res = await apiCall(API_PLAYLIST, { action: 'get_playlists', username: currentUser });
+            const playlists = Object.keys(res.playlists || {});
+
+            container.innerHTML = '';
+            if (playlists.length === 0) {
+                container.innerHTML = '<p style="padding:10px; color:#666;">No collections found. Create one first!</p>';
+            } else {
+                playlists.forEach(plName => {
+                    const div = document.createElement('div');
+                    div.className = 'playlist-option';
+                    div.textContent = plName;
+                    div.onclick = () => confirmAddToPlaylist(plName);
+                    container.appendChild(div);
+                });
+            }
+        }
+
+        async function confirmAddToPlaylist(playlistName) {
+            if (!trackPendingAdd) return;
+
+            const res = await apiCall(API_PLAYLIST, {
+                action: 'add_to_playlist',
+                username: currentUser,
+                playlist_name: playlistName,
+                track: trackPendingAdd
+            });
+
+            document.getElementById('add-track-modal').style.display = 'none';
+
+            if (res.status === 'success') {
+                showToast(`Added to ${playlistName}`);
+            } else {
+                showToast("Error adding track");
+            }
+        }
+
+        function populateFilters() {
+            const select = document.getElementById('artist-filter');
+            if (!select) return;
+            const source = publicAlbums || [];
+            const artists = new Set(source.map(a => a.artist).filter(x => x && x !== 'Unknown'));    
+            select.innerHTML = '<option value="">All Artists</option>';
+            artists.forEach(a => {
+                select.innerHTML += `<option value="${a}">${a}</option>`;
+            });
+        }
+
+        function downloadTrack(url, filename) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename; 
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        async function downloadAlbum(albumName) {
+            const isPlaylistView = document.getElementById('btn-my-playlists').classList.contains('active');
+
+            const sourceData = isPlaylistView ? (myPlaylists || []) : (publicAlbums || []);
+
+            const album = sourceData.find(a => a.name === albumName);
+
+            if (!album) {
+                showToast("Error: Could not find album in the current view.");
+                return;
+            }
+
+            showToast("Compressing audio data... Please wait.");
+
+            const zip = new JSZip();
+            const folder = zip.folder(album.name); 
+
+            const fetchBlob = async (url) => {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Failed to load ${url}`);
+                return await response.blob();
+            };
+
+            const promises = album.tracks.map(async (t, i) => {
+                try {
+                    const blob = await fetchBlob(t.audio_url);
+                    
+                    const num = (i + 1).toString().padStart(2, '0');
+                    const safeTitle = t.title.replace(/[\/\\?%*:|"<>]/g, '-'); 
+                    const filename = `${num} - ${safeTitle}.mp3`;
+                    
+                    folder.file(filename, blob);
+                } catch (e) {
+                    console.error("Error zipping track:", t.title, e);
+                }
+            });
+
+            await Promise.all(promises);
+
+            showToast("Finalizing archive...");
+
+            const content = await zip.generateAsync({ type: "blob" });
+
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(content);
+            a.download = `${album.name}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+            showToast("Download started.");
+        }
+
+        function applyFilters() {
+            const term = document.getElementById('search-bar').value.toLowerCase();
+            const artistFilter = document.getElementById('artist-filter');
+            const artist = artistFilter ? artistFilter.value : "";
+
+            const isPlaylistView = document.getElementById('btn-my-playlists').classList.contains('active');
+            
+            const sourceData = isPlaylistView ? (myPlaylists || []) : (publicAlbums || []);
+
+            const filtered = sourceData.filter(a => {
+                const aName = a.name ? a.name.toLowerCase() : "";
+                const aArtist = a.artist ? a.artist : "";
+
+                const matchesTerm = aName.includes(term);
+               
+                const matchesArtist = !artist || aArtist === artist;
+                
+                return matchesTerm && matchesArtist;
+            });
+
+            const grid = document.getElementById('grid-container');
+            
+            if (grid.style.display === 'none' && typeof backToGrid === 'function') {
+                backToGrid();
+            }
+
+            renderAlbums(filtered);
+        }
+
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const sidebar = document.querySelector('.sidebar');
+        const mainContent = document.querySelector('.main-view');
+
+        if (mobileMenuBtn) {
+            mobileMenuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                sidebar.classList.toggle('active');
+            });
+        }
+
+        if (mainContent) {
+            mainContent.addEventListener('click', () => {
+                if (sidebar.classList.contains('active')) {
+                    sidebar.classList.remove('active');
+                }
+            });
+        }
+
+        const globalAudio = document.getElementById('audio-player');
+
+        globalAudio.addEventListener('error', (e) => {
+            const currentSrc = globalAudio.getAttribute('src');
+            
+            if (currentSrc && currentSrc.includes('/radio/')) {
+                console.warn("[Radio] Connection lost. Attempting to reconnect in 3s...");
+                
+                setTimeout(() => {
+                    globalAudio.src = '/radio/?t=' + Date.now();
+                    globalAudio.load();
+                    globalAudio.play().catch(err => console.error("Auto-play blocked:", err));
+                    
+                    const radioCard = document.getElementById('radio-card');
+                    if (radioCard) {
+                        radioCard.innerHTML = `
+                            <h2 style="color:white; font-weight:600; margin-bottom:12px;">Reconnecting...</h2>
+                            <p style="color:#e0e0e0; font-size:14px;">The stream was interrupted.</p>
+                        `;
+                    }
+                }, 3000);
+            }
+        });
+
+        function updateInterfaceState() {
+            const panel = document.querySelector('.acquisition-panel');
+            if (panel) {
+                if (currentUser) {
+                    panel.classList.add('visible');
+                } else {
+                    panel.classList.remove('visible');
+                }
+            }
+        }
+
+        updateInterfaceState();
+    </script>
+</body>
+
+</html>
